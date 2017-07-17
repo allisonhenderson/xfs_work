@@ -46,7 +46,10 @@
 	{ XFS_SCRUB_TYPE_SYMLINK,	"symlink" }, \
 	{ XFS_SCRUB_TYPE_PARENT,	"parent" }, \
 	{ XFS_SCRUB_TYPE_RTBITMAP,	"rtbitmap" }, \
-	{ XFS_SCRUB_TYPE_RTSUM,		"rtsummary" }
+	{ XFS_SCRUB_TYPE_RTSUM,		"rtsummary" }, \
+	{ XFS_SCRUB_TYPE_UQUOTA,	"usrquota" }, \
+	{ XFS_SCRUB_TYPE_GQUOTA,	"grpquota" }, \
+	{ XFS_SCRUB_TYPE_PQUOTA,	"prjquota" }
 DECLARE_EVENT_CLASS(xfs_scrub_class,
 	TP_PROTO(struct xfs_inode *ip, struct xfs_scrub_metadata *sm,
 		 int error),

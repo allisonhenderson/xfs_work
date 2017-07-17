@@ -265,6 +265,24 @@ static const struct xfs_scrub_meta_ops meta_scrub_ops[] = {
 	{ NULL },
 	{ NULL },
 #endif
+#ifdef CONFIG_XFS_QUOTA
+	{ /* user quota */
+		.setup = xfs_scrub_setup_quota,
+		.scrub = xfs_scrub_quota,
+	},
+	{ /* group quota */
+		.setup = xfs_scrub_setup_quota,
+		.scrub = xfs_scrub_quota,
+	},
+	{ /* project quota */
+		.setup = xfs_scrub_setup_quota,
+		.scrub = xfs_scrub_quota,
+	},
+#else
+	{ NULL },
+	{ NULL },
+	{ NULL },
+#endif
 };
 
 /* Dispatch metadata scrubbing. */
