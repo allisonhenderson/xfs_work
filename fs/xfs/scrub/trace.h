@@ -32,7 +32,9 @@
 	{ XFS_SCRUB_TYPE_AGFL,		"AGFL" }, \
 	{ XFS_SCRUB_TYPE_AGI,		"AGI" }, \
 	{ XFS_SCRUB_TYPE_BNOBT,		"bnobt" }, \
-	{ XFS_SCRUB_TYPE_CNTBT,		"cntbt" }
+	{ XFS_SCRUB_TYPE_CNTBT,		"cntbt" } , \
+	{ XFS_SCRUB_TYPE_INOBT,		"inobt" }, \
+	{ XFS_SCRUB_TYPE_FINOBT,	"finobt" }
 DECLARE_EVENT_CLASS(xfs_scrub_class,
 	TP_PROTO(struct xfs_inode *ip, struct xfs_scrub_metadata *sm,
 		 int error),
