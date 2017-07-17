@@ -522,5 +522,7 @@ int64_t xfs_btree_diff_two_ptrs(struct xfs_btree_cur *cur,
 void xfs_btree_get_sibling(struct xfs_btree_cur *cur,
 			   struct xfs_btree_block *block,
 			   union xfs_btree_ptr *ptr, int lr);
+int xfs_btree_has_record(struct xfs_btree_cur *cur, union xfs_btree_irec *low,
+		union xfs_btree_irec *high, bool *exists);
 
 #endif	/* __XFS_BTREE_H__ */
