@@ -1769,6 +1769,27 @@ xfs_ioc_swapext(
 	return error;
 }
 
+static int
+xfs_ioc_get_ag_reserve_blocks(
+	struct xfs_mount		*mp,
+	void __user			*arg)
+{
+	struct xfs_fsop_ag_resblks	out;
+	int				error;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
+	error = xfs_fs_get_ag_reserve_blocks(mp, &out);
+	if (error)
+		return error;
+
+	if (copy_to_user(arg, &out, sizeof(out)))
+		return -EFAULT;
+
+	return 0;
+}
+
 /*
  * Note: some of the ioctl's return positive numbers as a
  * byte count indicating success, such as readlink_by_handle.
@@ -1973,6 +1994,9 @@ xfs_file_ioctl(
 
 		return 0;
 	}
+
+	case XFS_IOC_GET_AG_RESBLKS:
+		return xfs_ioc_get_ag_reserve_blocks(mp, arg);
 
 	case XFS_IOC_FSGROWFSDATA: {
 		xfs_growfs_data_t in;
