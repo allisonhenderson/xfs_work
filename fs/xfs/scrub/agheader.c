@@ -442,6 +442,7 @@ xfs_scrub_agf(
 	xfs_agblock_t			fl_count;
 	xfs_extlen_t			blocks;
 	bool				is_freesp;
+	int				have;
 	int				level;
 	int				error = 0;
 
@@ -541,6 +542,26 @@ xfs_scrub_agf(
 			break;
 		xfs_scrub_block_xref_check_ok(sc, sc->sa.agf_bp,
 				blocks == be32_to_cpu(agf->agf_freeblks));
+		break;
+	}
+
+	/* Cross-reference with the cntbt. */
+	while (psa->cnt_cur) {
+		error = xfs_alloc_lookup_le(psa->cnt_cur, 0, -1U, &have);
+		if (!xfs_scrub_should_xref(sc, &error, &psa->cnt_cur))
+			break;
+		if (!have) {
+			xfs_scrub_block_xref_check_ok(sc, sc->sa.agf_bp,
+					agf->agf_freeblks == be32_to_cpu(0));
+			break;
+		}
+
+		error = xfs_alloc_get_rec(psa->cnt_cur, &agbno, &blocks, &have);
+		if (!xfs_scrub_should_xref(sc, &error, &psa->cnt_cur))
+			break;
+		xfs_scrub_block_xref_check_ok(sc, sc->sa.agf_bp,
+				!have ||
+				blocks == be32_to_cpu(agf->agf_longest));
 		break;
 	}
 

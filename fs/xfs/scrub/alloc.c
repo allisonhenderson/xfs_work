@@ -30,6 +30,7 @@
 #include "xfs_trans.h"
 #include "xfs_sb.h"
 #include "xfs_rmap.h"
+#include "xfs_alloc.h"
 #include "scrub/xfs_scrub.h"
 #include "scrub/scrub.h"
 #include "scrub/common.h"
@@ -58,9 +59,14 @@ xfs_scrub_allocbt_helper(
 {
 	struct xfs_mount		*mp = bs->cur->bc_mp;
 	struct xfs_agf			*agf;
+	struct xfs_btree_cur		**xcur;
+	struct xfs_scrub_ag		*psa;
 	unsigned long long		rec_end;
+	xfs_agblock_t			fbno;
 	xfs_agblock_t			bno;
+	xfs_extlen_t			flen;
 	xfs_extlen_t			len;
+	int				has_otherrec;
 	int				error = 0;
 
 	bno = be32_to_cpu(rec->alloc.ar_startblock);
@@ -73,6 +79,31 @@ xfs_scrub_allocbt_helper(
 			bno < be32_to_cpu(agf->agf_length) &&
 			rec_end <= mp->m_sb.sb_agblocks &&
 			rec_end <= be32_to_cpu(agf->agf_length));
+
+	psa = &bs->sc->sa;
+	/*
+	 * Ensure there's a corresponding cntbt/bnobt record matching
+	 * this bnobt/cntbt record, respectively.
+	 */
+	xcur = bs->cur == psa->bno_cur ? &psa->cnt_cur : &psa->bno_cur;
+	while (*xcur) {
+		error = xfs_alloc_lookup_le(*xcur, bno, len, &has_otherrec);
+		if (!xfs_scrub_should_xref(bs->sc, &error, xcur) ||
+		    !xfs_scrub_btree_xref_check_ok(bs->sc, *xcur, 0,
+				has_otherrec))
+			break;
+
+		error = xfs_alloc_get_rec(*xcur, &fbno, &flen,
+				&has_otherrec);
+		if (!xfs_scrub_should_xref(bs->sc, &error, xcur) ||
+		    !xfs_scrub_btree_xref_check_ok(bs->sc, *xcur, 0,
+				has_otherrec))
+			break;
+
+		xfs_scrub_btree_xref_check_ok(bs->sc, *xcur, 0,
+				fbno == bno && flen == len);
+		break;
+	}
 
 	return error;
 }
