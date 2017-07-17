@@ -33,6 +33,7 @@
 #include "xfs_alloc.h"
 #include "xfs_ialloc.h"
 #include "xfs_rmap.h"
+#include "xfs_refcount.h"
 #include "scrub/xfs_scrub.h"
 #include "scrub/scrub.h"
 #include "scrub/common.h"
@@ -160,6 +161,7 @@ xfs_scrub_superblock(
 	bool				is_freesp;
 	bool				has_inodes;
 	bool				has_rmap;
+	bool				has_refcount;
 	int				error;
 	__be16				vernum_mask;
 
@@ -459,6 +461,14 @@ xfs_scrub_superblock(
 			xfs_scrub_block_xref_check_ok(sc, bp, has_rmap);
 	}
 
+	/* Cross-reference with the refcountbt. */
+	if (psa->refc_cur) {
+		error = xfs_refcount_has_record(psa->refc_cur, XFS_SB_BLOCK(mp),
+				1, &has_refcount);
+		if (xfs_scrub_should_xref(sc, &error, &psa->refc_cur))
+			xfs_scrub_block_xref_check_ok(sc, bp, !has_refcount);
+	}
+
 	return error;
 }
 
@@ -500,6 +510,7 @@ xfs_scrub_agf(
 	bool				is_freesp;
 	bool				has_inodes;
 	bool				has_rmap;
+	bool				has_refcount;
 	int				have;
 	int				level;
 	int				error = 0;
@@ -675,6 +686,25 @@ xfs_scrub_agf(
 						agf->agf_btreeblks));
 	}
 
+	/* Cross-reference with the refcountbt. */
+	while (psa->refc_cur) {
+		error = xfs_refcount_has_record(psa->refc_cur,
+				XFS_AGF_BLOCK(mp), 1, &has_refcount);
+		if (!xfs_scrub_should_xref(sc, &error, &psa->refc_cur))
+			break;
+		xfs_scrub_block_xref_check_ok(sc, sc->sa.agf_bp,
+				!has_refcount);
+
+		error = xfs_btree_count_blocks(psa->refc_cur, &blocks);
+		if (!xfs_scrub_should_xref(sc, &error, &psa->refc_cur))
+			break;
+
+		xfs_scrub_block_xref_check_ok(sc, sc->sa.agf_bp,
+				blocks ==
+				be32_to_cpu(agf->agf_refcount_blocks));
+		break;
+	}
+
 out:
 	return error;
 }
@@ -700,6 +730,7 @@ xfs_scrub_agfl_block(
 	bool				is_freesp;
 	bool				has_inodes;
 	bool				has_rmap;
+	bool				has_refcount;
 	int				error = 0;
 
 	xfs_scrub_block_check_ok(sc, sc->sa.agfl_bp,
@@ -748,6 +779,15 @@ xfs_scrub_agfl_block(
 					has_rmap);
 	}
 
+	/* Cross-reference with the refcountbt. */
+	if (sc->sa.refc_cur) {
+		error = xfs_refcount_has_record(sc->sa.refc_cur, agbno, 1,
+				&has_refcount);
+		if (xfs_scrub_should_xref(sc, &error, &sc->sa.refc_cur))
+			xfs_scrub_block_xref_check_ok(sc, sc->sa.agfl_bp,
+					!has_refcount);
+	}
+
 	return error;
 }
 
@@ -763,6 +803,7 @@ xfs_scrub_agfl(
 	bool				is_freesp;
 	bool				has_inodes;
 	bool				has_rmap;
+	bool				has_refcount;
 	int				error;
 
 	agno = sc->sm->sm_agno;
@@ -813,6 +854,15 @@ xfs_scrub_agfl(
 					has_rmap);
 	}
 
+	/* Set up cross-reference with refcountbt. */
+	if (sc->sa.refc_cur) {
+		error = xfs_refcount_has_record(sc->sa.refc_cur,
+				XFS_AGFL_BLOCK(mp), 1, &has_refcount);
+		if (xfs_scrub_should_xref(sc, &error, &sc->sa.refc_cur))
+			xfs_scrub_block_xref_check_ok(sc, sc->sa.agfl_bp,
+					!has_refcount);
+	}
+
 	/* Check the blocks in the AGFL. */
 	xfs_rmap_ag_owner(&sagfl.oinfo, XFS_RMAP_OWN_AG);
 	return xfs_scrub_walk_agfl(sc, xfs_scrub_agfl_block, &sagfl);
@@ -844,6 +894,7 @@ xfs_scrub_agi(
 	bool				is_freesp;
 	bool				has_inodes;
 	bool				has_rmap;
+	bool				has_refcount;
 	int				i;
 	int				level;
 	int				error = 0;
@@ -964,6 +1015,15 @@ xfs_scrub_agi(
 		if (xfs_scrub_should_xref(sc, &error, &psa->rmap_cur))
 			xfs_scrub_block_xref_check_ok(sc, sc->sa.agi_bp,
 					has_rmap);
+	}
+
+	/* Cross-reference with the refcountbt. */
+	if (psa->refc_cur) {
+		error = xfs_refcount_has_record(psa->refc_cur, XFS_AGI_BLOCK(mp),
+				1, &has_refcount);
+		if (xfs_scrub_should_xref(sc, &error, &psa->refc_cur))
+			xfs_scrub_block_xref_check_ok(sc, sc->sa.agi_bp,
+					!has_refcount);
 	}
 
 out:

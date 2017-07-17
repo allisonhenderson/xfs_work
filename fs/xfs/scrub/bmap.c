@@ -37,6 +37,7 @@
 #include "xfs_rmap.h"
 #include "xfs_alloc.h"
 #include "xfs_ialloc.h"
+#include "xfs_refcount.h"
 #include "scrub/xfs_scrub.h"
 #include "scrub/scrub.h"
 #include "scrub/common.h"
@@ -210,6 +211,64 @@ xfs_scrub_bmap_xref_rmap(
 			!(rmap.rm_flags & XFS_RMAP_BMBT_BLOCK));
 }
 
+/* Make sure the refcount records match this extent. */
+STATIC void
+xfs_scrub_bmap_xref_refc(
+	struct xfs_scrub_bmap_info	*info,
+	struct xfs_scrub_ag		*sa,
+	struct xfs_bmbt_irec		*irec,
+	xfs_fsblock_t			bno)
+{
+	struct xfs_refcount_irec	rc;
+	unsigned long long		rec_end;
+	xfs_agblock_t			fbno;
+	xfs_extlen_t			flen;
+	bool				has_cowflag;
+	int				has_refcount;
+	int				error;
+
+	if (info->whichfork != XFS_COW_FORK) {
+		/* If this is shared, the inode flag must be set. */
+		error = xfs_refcount_find_shared(sa->refc_cur, bno,
+				irec->br_blockcount, &fbno, &flen,
+				false);
+		if (xfs_scrub_should_xref(info->sc, &error, &sa->refc_cur))
+			xfs_scrub_fblock_xref_check_ok(info->sc,
+					info->whichfork, irec->br_startoff,
+					flen == 0 ||
+					xfs_is_reflink_inode(info->sc->ip));
+		return;
+	}
+
+	/* Check this CoW staging extent. */
+	error = xfs_refcount_lookup_le(sa->refc_cur, bno + XFS_REFC_COW_START,
+			&has_refcount);
+	if (!xfs_scrub_should_xref(info->sc, &error, &sa->refc_cur) ||
+	    !xfs_scrub_fblock_xref_check_ok(info->sc, info->whichfork,
+			irec->br_startoff, has_refcount))
+		return;
+
+	error = xfs_refcount_get_rec(sa->refc_cur, &rc, &has_refcount);
+	if (!xfs_scrub_should_xref(info->sc, &error, &sa->refc_cur) ||
+	    !xfs_scrub_fblock_xref_check_ok(info->sc, info->whichfork,
+			irec->br_startoff, has_refcount))
+		return;
+
+	has_cowflag = !!(rc.rc_startblock & XFS_REFC_COW_START);
+	xfs_scrub_fblock_xref_check_ok(info->sc, info->whichfork,
+			irec->br_startoff,
+			(rc.rc_refcount == 1 && has_cowflag) ||
+			(rc.rc_refcount != 1 && !has_cowflag));
+
+	rc.rc_startblock &= ~XFS_REFC_COW_START;
+	rec_end = (unsigned long long)rc.rc_startblock + rc.rc_blockcount;
+	xfs_scrub_fblock_xref_check_ok(info->sc, info->whichfork,
+			irec->br_startoff,
+			rc.rc_startblock <= bno &&
+			bno + irec->br_blockcount <= rec_end &&
+			rc.rc_refcount == 1);
+}
+
 /* Scrub a single extent record. */
 STATIC int
 xfs_scrub_bmap_extent(
@@ -311,6 +370,13 @@ xfs_scrub_bmap_extent(
 	/* Cross-reference with rmapbt. */
 	if (sa.rmap_cur)
 		xfs_scrub_bmap_xref_rmap(info, &sa, irec, bno);
+
+	/*
+	 * If this is a non-shared file on a reflink filesystem,
+	 * check the refcountbt to see if the flag is wrong.
+	 */
+	if (sa.refc_cur)
+		xfs_scrub_bmap_xref_refc(info, &sa, irec, bno);
 
 	xfs_scrub_ag_free(info->sc, &sa);
 out:

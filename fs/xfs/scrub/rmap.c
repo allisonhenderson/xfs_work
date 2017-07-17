@@ -32,6 +32,7 @@
 #include "xfs_rmap.h"
 #include "xfs_alloc.h"
 #include "xfs_ialloc.h"
+#include "xfs_refcount.h"
 #include "scrub/xfs_scrub.h"
 #include "scrub/scrub.h"
 #include "scrub/common.h"
@@ -50,6 +51,66 @@ xfs_scrub_setup_ag_rmapbt(
 }
 
 /* Reverse-mapping scrubber. */
+
+/* Cross-reference a rmap against the refcount btree. */
+STATIC void
+xfs_scrub_rmapbt_xref_refc(
+	struct xfs_scrub_btree		*bs,
+	struct xfs_rmap_irec		*irec,
+	bool				non_inode,
+	bool				is_attr,
+	bool				is_bmbt,
+	bool				is_unwritten)
+{
+	struct xfs_scrub_ag		*psa = &bs->sc->sa;
+	struct xfs_refcount_irec	crec;
+	unsigned long long		rec_end;
+	xfs_agblock_t			fbno;
+	xfs_extlen_t			flen;
+	bool				has_cowflag;
+	int				has_refcount;
+	int				error;
+
+	if (irec->rm_owner != XFS_RMAP_OWN_COW) {
+		/* If this is shared, must be a data fork extent. */
+		error = xfs_refcount_find_shared(psa->refc_cur,
+				irec->rm_startblock, irec->rm_blockcount,
+				&fbno, &flen, false);
+		if (xfs_scrub_should_xref(bs->sc, &error, &psa->refc_cur))
+			xfs_scrub_btree_xref_check_ok(bs->sc, psa->refc_cur, 0,
+					flen == 0 ||
+					(!non_inode && !is_attr &&
+					 !is_bmbt && !is_unwritten));
+		return;
+	}
+
+	/* Check this CoW staging extent. */
+	error = xfs_refcount_lookup_le(psa->refc_cur,
+			irec->rm_startblock + XFS_REFC_COW_START,
+			&has_refcount);
+	if (!xfs_scrub_should_xref(bs->sc, &error, &psa->refc_cur) ||
+	    !xfs_scrub_btree_xref_check_ok(bs->sc, psa->refc_cur, 0,
+			has_refcount))
+		return;
+
+	error = xfs_refcount_get_rec(psa->refc_cur, &crec, &has_refcount);
+	if (!xfs_scrub_should_xref(bs->sc, &error, &psa->refc_cur) ||
+	    !xfs_scrub_btree_xref_check_ok(bs->sc, psa->refc_cur, 0,
+			has_refcount))
+		return;
+
+	has_cowflag = !!(crec.rc_startblock & XFS_REFC_COW_START);
+	xfs_scrub_btree_xref_check_ok(bs->sc, psa->refc_cur, 0,
+			(crec.rc_refcount == 1 && has_cowflag) ||
+			(crec.rc_refcount != 1 && !has_cowflag));
+
+	crec.rc_startblock &= ~XFS_REFC_COW_START;
+	rec_end = (unsigned long long)crec.rc_startblock + crec.rc_blockcount;
+	xfs_scrub_btree_xref_check_ok(bs->sc, psa->refc_cur, 0,
+			crec.rc_startblock <= irec->rm_startblock &&
+			rec_end >= irec->rm_startblock + irec->rm_blockcount &&
+			crec.rc_refcount == 1);
+}
 
 /* Scrub an rmapbt record. */
 STATIC int
@@ -155,6 +216,11 @@ xfs_scrub_rmapbt_helper(
 					irec.rm_owner == XFS_RMAP_OWN_INODES ||
 					!has_inodes);
 	}
+
+	/* Cross-reference with the refcount btree. */
+	if (psa->refc_cur)
+		xfs_scrub_rmapbt_xref_refc(bs, &irec, non_inode, is_attr,
+				is_bmbt, is_unwritten);
 
 out:
 	return error;

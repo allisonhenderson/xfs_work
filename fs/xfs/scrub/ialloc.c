@@ -37,6 +37,7 @@
 #include "xfs_log.h"
 #include "xfs_trans_priv.h"
 #include "xfs_alloc.h"
+#include "xfs_refcount.h"
 #include "scrub/xfs_scrub.h"
 #include "scrub/scrub.h"
 #include "scrub/common.h"
@@ -77,6 +78,7 @@ xfs_scrub_iallocbt_chunk(
 	bool				is_freesp;
 	bool				has_inodes;
 	bool				has_rmap;
+	bool				has_refcount;
 	int				error = 0;
 
 	agf = XFS_BUF_TO_AGF(bs->sc->sa.agf_bp);
@@ -126,6 +128,15 @@ xfs_scrub_iallocbt_chunk(
 		if (xfs_scrub_should_xref(bs->sc, &error, &psa->rmap_cur))
 			xfs_scrub_btree_xref_check_ok(bs->sc, psa->rmap_cur, 0,
 					has_rmap);
+	}
+
+	/* Cross-reference with the refcountbt. */
+	if (psa->refc_cur) {
+		error = xfs_refcount_has_record(psa->refc_cur, bno,
+				len, &has_refcount);
+		if (xfs_scrub_should_xref(bs->sc, &error, &psa->refc_cur))
+			xfs_scrub_btree_xref_check_ok(bs->sc, psa->refc_cur, 0,
+					!has_refcount);
 	}
 
 	return true;
