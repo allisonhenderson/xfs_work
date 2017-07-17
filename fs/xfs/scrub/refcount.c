@@ -85,6 +85,11 @@ xfs_scrub_refcountbt_helper(
 			rec_end <= eoag &&
 			irec.rc_refcount >= 1);
 
+	/* Cross-reference with the AG headers. */
+	xfs_scrub_btree_xref_check_ok(bs->sc, bs->cur, 0,
+			!xfs_scrub_extent_covers_ag_head(mp,
+				irec.rc_startblock, irec.rc_blockcount));
+
 	psa = &bs->sc->sa;
 	/* Cross-reference with the bnobt. */
 	if (psa->bno_cur) {

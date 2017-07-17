@@ -80,6 +80,10 @@ xfs_scrub_allocbt_helper(
 			rec_end <= mp->m_sb.sb_agblocks &&
 			rec_end <= be32_to_cpu(agf->agf_length));
 
+	/* Cross-reference with the AG headers. */
+	xfs_scrub_btree_xref_check_ok(bs->sc, bs->cur, 0,
+			!xfs_scrub_extent_covers_ag_head(mp, bno, len));
+
 	psa = &bs->sc->sa;
 	/*
 	 * Ensure there's a corresponding cntbt/bnobt record matching

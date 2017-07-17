@@ -85,6 +85,10 @@ xfs_scrub_iallocbt_chunk(
 			rec_end <= mp->m_sb.sb_agblocks && rec_end <= eoag))
 		return false;
 
+	/* Cross-reference with the AG headers. */
+	xfs_scrub_btree_xref_check_ok(bs->sc, bs->cur, 0,
+			!xfs_scrub_extent_covers_ag_head(mp, bno, len));
+
 	psa = &bs->sc->sa;
 	/* Cross-reference with the bnobt. */
 	if (psa->bno_cur) {

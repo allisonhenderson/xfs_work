@@ -183,6 +183,13 @@ xfs_scrub_bmap_extent(
 			goto out;
 	}
 
+	/* Cross-reference with the AG headers. */
+	if (!info->is_rt)
+		xfs_scrub_fblock_xref_check_ok(info->sc, info->whichfork,
+				irec->br_startoff,
+				!xfs_scrub_extent_covers_ag_head(mp,
+					bno, irec->br_blockcount));
+
 	/* Cross-reference with the bnobt. */
 	if (sa.bno_cur) {
 		error = xfs_alloc_has_record(sa.bno_cur, bno,

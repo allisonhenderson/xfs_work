@@ -116,6 +116,12 @@ xfs_scrub_rmapbt_helper(
 			(irec.rm_owner > XFS_RMAP_OWN_MIN &&
 			 irec.rm_owner <= XFS_RMAP_OWN_FS));
 
+	/* Cross-reference with the AG headers. */
+	xfs_scrub_btree_xref_check_ok(bs->sc, bs->cur, 0,
+			irec.rm_owner == XFS_RMAP_OWN_FS ||
+			!xfs_scrub_extent_covers_ag_head(mp, irec.rm_startblock,
+				irec.rm_blockcount));
+
 	psa = &bs->sc->sa;
 	/* Cross-reference with the bnobt. */
 	if (psa->bno_cur) {
