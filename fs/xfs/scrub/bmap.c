@@ -35,6 +35,7 @@
 #include "xfs_bmap_util.h"
 #include "xfs_bmap_btree.h"
 #include "xfs_rmap.h"
+#include "xfs_alloc.h"
 #include "scrub/xfs_scrub.h"
 #include "scrub/scrub.h"
 #include "scrub/common.h"
@@ -139,6 +140,7 @@ xfs_scrub_bmap_extent(
 	xfs_daddr_t			dlen;
 	xfs_fsblock_t			bno;
 	xfs_agnumber_t			agno;
+	bool				is_freesp;
 	int				error = 0;
 
 	if (cur)
@@ -179,6 +181,16 @@ xfs_scrub_bmap_extent(
 		if (!xfs_scrub_fblock_op_ok(info->sc, info->whichfork,
 				irec->br_startoff, &error))
 			goto out;
+	}
+
+	/* Cross-reference with the bnobt. */
+	if (sa.bno_cur) {
+		error = xfs_alloc_has_record(sa.bno_cur, bno,
+				irec->br_blockcount, &is_freesp);
+		if (xfs_scrub_should_xref(info->sc, &error, &sa.bno_cur))
+			xfs_scrub_fblock_xref_check_ok(info->sc,
+					info->whichfork, irec->br_startoff,
+					!is_freesp);
 	}
 
 	xfs_scrub_ag_free(info->sc, &sa);

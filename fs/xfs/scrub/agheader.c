@@ -30,6 +30,7 @@
 #include "xfs_trans.h"
 #include "xfs_sb.h"
 #include "xfs_inode.h"
+#include "xfs_alloc.h"
 #include "scrub/xfs_scrub.h"
 #include "scrub/scrub.h"
 #include "scrub/common.h"
@@ -124,10 +125,12 @@ xfs_scrub_superblock(
 {
 	struct xfs_mount		*mp = sc->mp;
 	struct xfs_buf			*bp;
+	struct xfs_scrub_ag		*psa;
 	struct xfs_dsb			*sb;
 	xfs_agnumber_t			agno;
 	uint32_t			v2_ok;
 	__be32				features_mask;
+	bool				is_freesp;
 	int				error;
 	__be16				vernum_mask;
 
@@ -388,10 +391,37 @@ xfs_scrub_superblock(
 			!memchr_inv(sb + 1, 0,
 				BBTOB(bp->b_length) - sizeof(struct xfs_dsb)));
 
+	/* Set up for cross-referencing */
+	error = xfs_scrub_ag_init(sc, agno, &sc->sa);
+	if (!xfs_scrub_xref_op_ok(sc, agno, XFS_SB_BLOCK(mp), &error))
+		return error;
+
+	psa = &sc->sa;
+	/* Cross-reference with bnobt. */
+	if (psa->bno_cur) {
+		error = xfs_alloc_has_record(psa->bno_cur, XFS_SB_BLOCK(mp),
+				1, &is_freesp);
+		if (xfs_scrub_should_xref(sc, &error, &psa->bno_cur))
+			xfs_scrub_block_xref_check_ok(sc, bp, !is_freesp);
+	}
+
 	return error;
 }
 
 /* AGF */
+
+/* Tally freespace record lengths. */
+STATIC int
+xfs_scrub_agf_record_bno_lengths(
+	struct xfs_btree_cur		*cur,
+	struct xfs_alloc_rec_incore	*rec,
+	void				*priv)
+{
+	xfs_extlen_t			*blocks = priv;
+
+	(*blocks) += rec->ar_blockcount;
+	return 0;
+}
 
 /* Scrub the AGF. */
 int
@@ -400,6 +430,7 @@ xfs_scrub_agf(
 {
 	struct xfs_mount		*mp = sc->mp;
 	struct xfs_agf			*agf;
+	struct xfs_scrub_ag		*psa;
 	xfs_daddr_t			daddr;
 	xfs_daddr_t			eofs;
 	xfs_agnumber_t			agno;
@@ -409,6 +440,8 @@ xfs_scrub_agf(
 	xfs_agblock_t			agfl_last;
 	xfs_agblock_t			agfl_count;
 	xfs_agblock_t			fl_count;
+	xfs_extlen_t			blocks;
+	bool				is_freesp;
 	int				level;
 	int				error = 0;
 
@@ -485,6 +518,32 @@ xfs_scrub_agf(
 	xfs_scrub_block_check_ok(sc, sc->sa.agf_bp,
 			agfl_count == 0 || fl_count == agfl_count);
 
+	/* Load btrees for xref if the AGF is ok. */
+	psa = &sc->sa;
+	if (sc->sm->sm_flags & XFS_SCRUB_OFLAG_CORRUPT)
+		goto out;
+	error = xfs_scrub_ag_btcur_init(sc, psa);
+	if (error)
+		goto out;
+
+	/* Cross-reference with the bnobt. */
+	while (psa->bno_cur) {
+		error = xfs_alloc_has_record(psa->bno_cur, XFS_AGF_BLOCK(mp),
+				1, &is_freesp);
+		if (!xfs_scrub_should_xref(sc, &error, &psa->bno_cur))
+			break;
+		xfs_scrub_block_xref_check_ok(sc, sc->sa.agf_bp, !is_freesp);
+
+		blocks = 0;
+		error = xfs_alloc_query_all(psa->bno_cur,
+				xfs_scrub_agf_record_bno_lengths, &blocks);
+		if (!xfs_scrub_should_xref(sc, &error, &psa->bno_cur))
+			break;
+		xfs_scrub_block_xref_check_ok(sc, sc->sa.agf_bp,
+				blocks == be32_to_cpu(agf->agf_freeblks));
+		break;
+	}
+
 out:
 	return error;
 }
@@ -506,6 +565,7 @@ xfs_scrub_agfl_block(
 	struct xfs_mount		*mp = sc->mp;
 	xfs_agnumber_t			agno = sc->sa.agno;
 	struct xfs_scrub_agfl		*sagfl = priv;
+	bool				is_freesp;
 	int				error = 0;
 
 	xfs_scrub_block_check_ok(sc, sc->sa.agfl_bp,
@@ -513,6 +573,15 @@ xfs_scrub_agfl_block(
 			agbno < mp->m_sb.sb_agblocks &&
 			agbno < sagfl->eoag &&
 			XFS_AGB_TO_DADDR(mp, agno, agbno) < sagfl->eofs);
+
+	/* Cross-reference with the bnobt. */
+	if (sc->sa.bno_cur) {
+		error = xfs_alloc_has_record(sc->sa.bno_cur, agbno,
+				1, &is_freesp);
+		if (xfs_scrub_should_xref(sc, &error, &sc->sa.bno_cur))
+			xfs_scrub_block_xref_check_ok(sc, sc->sa.agfl_bp,
+					!is_freesp);
+	}
 
 	return error;
 }
@@ -526,6 +595,7 @@ xfs_scrub_agfl(
 	struct xfs_mount		*mp = sc->mp;
 	struct xfs_agf			*agf;
 	xfs_agnumber_t			agno;
+	bool				is_freesp;
 	int				error;
 
 	agno = sc->sm->sm_agno;
@@ -538,6 +608,15 @@ xfs_scrub_agfl(
 	agf = XFS_BUF_TO_AGF(sc->sa.agf_bp);
 	sagfl.eofs = XFS_FSB_TO_BB(mp, mp->m_sb.sb_dblocks);
 	sagfl.eoag = be32_to_cpu(agf->agf_length);
+
+	/* Cross-reference with the bnobt. */
+	if (sc->sa.bno_cur) {
+		error = xfs_alloc_has_record(sc->sa.bno_cur, XFS_AGFL_BLOCK(mp),
+				1, &is_freesp);
+		if (xfs_scrub_should_xref(sc, &error, &sc->sa.bno_cur))
+			xfs_scrub_block_xref_check_ok(sc, sc->sa.agfl_bp,
+					!is_freesp);
+	}
 
 	/* Check the blocks in the AGFL. */
 	return xfs_scrub_walk_agfl(sc, xfs_scrub_agfl_block, &sagfl);
@@ -554,6 +633,7 @@ xfs_scrub_agi(
 {
 	struct xfs_mount		*mp = sc->mp;
 	struct xfs_agi			*agi;
+	struct xfs_scrub_ag		*psa;
 	xfs_daddr_t			daddr;
 	xfs_daddr_t			eofs;
 	xfs_agnumber_t			agno;
@@ -562,6 +642,7 @@ xfs_scrub_agi(
 	xfs_agino_t			agino;
 	xfs_agino_t			first_agino;
 	xfs_agino_t			last_agino;
+	bool				is_freesp;
 	int				i;
 	int				level;
 	int				error = 0;
@@ -627,6 +708,23 @@ xfs_scrub_agi(
 			continue;
 		xfs_scrub_block_check_ok(sc, sc->sa.agi_bp,
 				(agino >= first_agino && agino <= last_agino));
+	}
+
+	/* Load btrees for xref if the AGI is ok. */
+	psa = &sc->sa;
+	if (sc->sm->sm_flags & XFS_SCRUB_OFLAG_CORRUPT)
+		goto out;
+	error = xfs_scrub_ag_btcur_init(sc, &sc->sa);
+	if (error)
+		goto out;
+
+	/* Cross-reference with bnobt. */
+	if (psa->bno_cur) {
+		error = xfs_alloc_has_record(psa->bno_cur, XFS_AGI_BLOCK(mp),
+				1, &is_freesp);
+		if (xfs_scrub_should_xref(sc, &error, &psa->bno_cur))
+			xfs_scrub_block_xref_check_ok(sc, sc->sa.agi_bp,
+					!is_freesp);
 	}
 
 out:

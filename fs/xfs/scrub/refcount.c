@@ -30,6 +30,7 @@
 #include "xfs_trans.h"
 #include "xfs_sb.h"
 #include "xfs_rmap.h"
+#include "xfs_alloc.h"
 #include "scrub/xfs_scrub.h"
 #include "scrub/scrub.h"
 #include "scrub/common.h"
@@ -57,10 +58,12 @@ xfs_scrub_refcountbt_helper(
 {
 	struct xfs_mount		*mp = bs->cur->bc_mp;
 	struct xfs_agf			*agf;
+	struct xfs_scrub_ag		*psa;
 	struct xfs_refcount_irec	irec;
 	unsigned long long		rec_end;
 	xfs_agblock_t			eoag;
 	bool				has_cowflag;
+	bool				is_freesp;
 	int				error = 0;
 
 	irec.rc_startblock = be32_to_cpu(rec->refc.rc_startblock);
@@ -81,6 +84,16 @@ xfs_scrub_refcountbt_helper(
 			rec_end <= mp->m_sb.sb_agblocks &&
 			rec_end <= eoag &&
 			irec.rc_refcount >= 1);
+
+	psa = &bs->sc->sa;
+	/* Cross-reference with the bnobt. */
+	if (psa->bno_cur) {
+		error = xfs_alloc_has_record(psa->bno_cur, irec.rc_startblock,
+				irec.rc_blockcount, &is_freesp);
+		if (xfs_scrub_should_xref(bs->sc, &error, &psa->bno_cur))
+			xfs_scrub_btree_xref_check_ok(bs->sc, psa->bno_cur, 0,
+					!is_freesp);
+	}
 
 	return error;
 }

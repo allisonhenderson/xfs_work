@@ -387,9 +387,12 @@ xfs_scrub_btree_check_block_owner(
 	struct xfs_scrub_ag		sa = { 0 };
 	struct xfs_scrub_ag		*psa;
 	xfs_agnumber_t			agno;
+	xfs_agblock_t			bno;
+	bool				is_freesp;
 	int				error = 0;
 
 	agno = xfs_daddr_to_agno(bs->cur->bc_mp, daddr);
+	bno = xfs_daddr_to_agbno(bs->cur->bc_mp, daddr);
 
 	if (bs->cur->bc_flags & XFS_BTREE_LONG_PTRS) {
 		error = xfs_scrub_ag_init(bs->sc, agno, &sa);
@@ -398,6 +401,14 @@ xfs_scrub_btree_check_block_owner(
 		psa = &sa;
 	} else {
 		psa = &bs->sc->sa;
+	}
+
+	/* Cross-reference with the bnobt. */
+	if (psa->bno_cur) {
+		error = xfs_alloc_has_record(psa->bno_cur, bno, 1, &is_freesp);
+		if (xfs_scrub_should_xref(bs->sc, &error, &psa->bno_cur))
+			xfs_scrub_btree_xref_check_ok(bs->sc, psa->bno_cur, 0,
+					!is_freesp);
 	}
 
 	if (psa == &sa)

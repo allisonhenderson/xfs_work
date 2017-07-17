@@ -36,6 +36,7 @@
 #include "xfs_rmap.h"
 #include "xfs_log.h"
 #include "xfs_trans_priv.h"
+#include "xfs_alloc.h"
 #include "scrub/xfs_scrub.h"
 #include "scrub/scrub.h"
 #include "scrub/common.h"
@@ -67,18 +68,34 @@ xfs_scrub_iallocbt_chunk(
 {
 	struct xfs_mount		*mp = bs->cur->bc_mp;
 	struct xfs_agf			*agf;
+	struct xfs_scrub_ag		*psa;
 	unsigned long long		rec_end;
 	xfs_agblock_t			eoag;
 	xfs_agblock_t			bno;
+	bool				is_freesp;
+	int				error = 0;
 
 	agf = XFS_BUF_TO_AGF(bs->sc->sa.agf_bp);
 	eoag = be32_to_cpu(agf->agf_length);
 	bno = XFS_AGINO_TO_AGBNO(mp, agino);
 	rec_end = (unsigned long long)bno + len;
 
-	return xfs_scrub_btree_check_ok(bs->sc, bs->cur, 0,
+	if (!xfs_scrub_btree_check_ok(bs->sc, bs->cur, 0,
 			bno < mp->m_sb.sb_agblocks && bno < eoag &&
-			rec_end <= mp->m_sb.sb_agblocks && rec_end <= eoag);
+			rec_end <= mp->m_sb.sb_agblocks && rec_end <= eoag))
+		return false;
+
+	psa = &bs->sc->sa;
+	/* Cross-reference with the bnobt. */
+	if (psa->bno_cur) {
+		error = xfs_alloc_has_record(psa->bno_cur, bno, len,
+				&is_freesp);
+		if (xfs_scrub_should_xref(bs->sc, &error, &psa->bno_cur))
+			xfs_scrub_btree_xref_check_ok(bs->sc, psa->bno_cur, 0,
+					!is_freesp);
+	}
+
+	return true;
 }
 
 /* Count the number of free inodes. */
