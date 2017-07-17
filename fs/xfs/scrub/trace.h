@@ -26,7 +26,8 @@
 #include <linux/tracepoint.h>
 
 #define XFS_SCRUB_TYPE_DESC \
-	{ XFS_SCRUB_TYPE_TEST,		"test" }
+	{ XFS_SCRUB_TYPE_TEST,		"test" }, \
+	{ XFS_SCRUB_TYPE_SB,		"superblock" }
 DECLARE_EVENT_CLASS(xfs_scrub_class,
 	TP_PROTO(struct xfs_inode *ip, struct xfs_scrub_metadata *sm,
 		 int error),

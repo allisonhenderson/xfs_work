@@ -162,6 +162,10 @@ static const struct xfs_scrub_meta_ops meta_scrub_ops[] = {
 		.setup	= xfs_scrub_setup_fs,
 		.scrub	= xfs_scrub_tester,
 	},
+	{ /* superblock */
+		.setup	= xfs_scrub_setup_ag_header,
+		.scrub	= xfs_scrub_superblock,
+	},
 };
 
 /* Dispatch metadata scrubbing. */
