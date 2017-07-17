@@ -44,7 +44,9 @@
 	{ XFS_SCRUB_TYPE_DIR,		"dir" }, \
 	{ XFS_SCRUB_TYPE_XATTR,		"xattr" }, \
 	{ XFS_SCRUB_TYPE_SYMLINK,	"symlink" }, \
-	{ XFS_SCRUB_TYPE_PARENT,	"parent" }
+	{ XFS_SCRUB_TYPE_PARENT,	"parent" }, \
+	{ XFS_SCRUB_TYPE_RTBITMAP,	"rtbitmap" }, \
+	{ XFS_SCRUB_TYPE_RTSUM,		"rtsummary" }
 DECLARE_EVENT_CLASS(xfs_scrub_class,
 	TP_PROTO(struct xfs_inode *ip, struct xfs_scrub_metadata *sm,
 		 int error),
