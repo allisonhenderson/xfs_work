@@ -544,3 +544,91 @@ xfs_scrub_agfl(
 out:
 	return error;
 }
+
+/* AGI */
+
+/* Scrub the AGI. */
+int
+xfs_scrub_agi(
+	struct xfs_scrub_context	*sc)
+{
+	struct xfs_mount		*mp = sc->mp;
+	struct xfs_agi			*agi;
+	xfs_daddr_t			daddr;
+	xfs_daddr_t			eofs;
+	xfs_agnumber_t			agno;
+	xfs_agblock_t			agbno;
+	xfs_agblock_t			eoag;
+	xfs_agino_t			agino;
+	xfs_agino_t			first_agino;
+	xfs_agino_t			last_agino;
+	int				i;
+	int				level;
+	int				error = 0;
+
+	agno = sc->sm->sm_agno;
+	error = xfs_scrub_load_ag_headers(sc, agno, XFS_SCRUB_TYPE_AGI);
+	if (!xfs_scrub_op_ok(sc, agno, XFS_AGI_BLOCK(sc->mp), &error))
+		goto out;
+
+	agi = XFS_BUF_TO_AGI(sc->sa.agi_bp);
+	eofs = XFS_FSB_TO_BB(mp, mp->m_sb.sb_dblocks);
+
+	/* Check the AG length */
+	eoag = be32_to_cpu(agi->agi_length);
+	xfs_scrub_block_check_ok(sc, sc->sa.agi_bp,
+			eoag == xfs_scrub_ag_blocks(mp, agno));
+
+	/* Check btree roots and levels */
+	agbno = be32_to_cpu(agi->agi_root);
+	daddr = XFS_AGB_TO_DADDR(mp, agno, agbno);
+	xfs_scrub_block_check_ok(sc, sc->sa.agi_bp,
+			agbno > XFS_AGI_BLOCK(mp) &&
+			agbno < mp->m_sb.sb_agblocks &&
+			agbno < eoag && daddr < eofs);
+
+	level = be32_to_cpu(agi->agi_level);
+	xfs_scrub_block_check_ok(sc, sc->sa.agi_bp,
+			level > 0 && level <= XFS_BTREE_MAXLEVELS);
+
+	if (xfs_sb_version_hasfinobt(&mp->m_sb)) {
+		agbno = be32_to_cpu(agi->agi_free_root);
+		daddr = XFS_AGB_TO_DADDR(mp, agno, agbno);
+		xfs_scrub_block_check_ok(sc, sc->sa.agi_bp,
+				agbno > XFS_AGI_BLOCK(mp) &&
+				agbno < mp->m_sb.sb_agblocks &&
+				agbno < eoag && daddr < eofs);
+
+		level = be32_to_cpu(agi->agi_free_level);
+		xfs_scrub_block_check_ok(sc, sc->sa.agi_bp,
+				level > 0 && level <= XFS_BTREE_MAXLEVELS);
+	}
+
+	/* Check inode counters */
+	first_agino = XFS_OFFBNO_TO_AGINO(mp, XFS_AGI_BLOCK(mp) + 1, 0);
+	last_agino = XFS_OFFBNO_TO_AGINO(mp, eoag + 1, 0) - 1;
+	agino = be32_to_cpu(agi->agi_count);
+	xfs_scrub_block_check_ok(sc, sc->sa.agi_bp,
+			agino <= last_agino - first_agino + 1 &&
+			agino >= be32_to_cpu(agi->agi_freecount));
+
+	/* Check inode pointers */
+	agino = be32_to_cpu(agi->agi_newino);
+	xfs_scrub_block_check_ok(sc, sc->sa.agi_bp, agino == NULLAGINO ||
+			(agino >= first_agino && agino <= last_agino));
+	agino = be32_to_cpu(agi->agi_dirino);
+	xfs_scrub_block_check_ok(sc, sc->sa.agi_bp, agino == NULLAGINO ||
+			(agino >= first_agino && agino <= last_agino));
+
+	/* Check unlinked inode buckets */
+	for (i = 0; i < XFS_AGI_UNLINKED_BUCKETS; i++) {
+		agino = be32_to_cpu(agi->agi_unlinked[i]);
+		if (agino == NULLAGINO)
+			continue;
+		xfs_scrub_block_check_ok(sc, sc->sa.agi_bp,
+				(agino >= first_agino && agino <= last_agino));
+	}
+
+out:
+	return error;
+}

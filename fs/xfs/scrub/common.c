@@ -499,12 +499,14 @@ xfs_scrub_load_ag_headers(
 	struct xfs_mount		*mp = sc->mp;
 	int				error;
 
-	ASSERT(type == XFS_SCRUB_TYPE_AGF || type == XFS_SCRUB_TYPE_AGFL);
+	ASSERT(type == XFS_SCRUB_TYPE_AGF || type == XFS_SCRUB_TYPE_AGFL ||
+	       type == XFS_SCRUB_TYPE_AGI);
 	memset(&sc->sa, 0, sizeof(sc->sa));
 	sc->sa.agno = agno;
 
 	error = xfs_scrub_load_ag_header(sc, XFS_AGI_DADDR(mp),
-			&sc->sa.agi_bp, &xfs_agi_buf_ops, false);
+			&sc->sa.agi_bp, &xfs_agi_buf_ops,
+			type == XFS_SCRUB_TYPE_AGI);
 	if (error)
 		return error;
 
