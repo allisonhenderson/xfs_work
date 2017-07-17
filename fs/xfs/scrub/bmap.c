@@ -38,6 +38,7 @@
 #include "xfs_alloc.h"
 #include "xfs_ialloc.h"
 #include "xfs_refcount.h"
+#include "xfs_rtalloc.h"
 #include "scrub/xfs_scrub.h"
 #include "scrub/scrub.h"
 #include "scrub/common.h"
@@ -286,6 +287,7 @@ xfs_scrub_bmap_extent(
 	xfs_agnumber_t			agno;
 	bool				is_freesp;
 	bool				has_inodes;
+	bool				is_free = false;
 	int				error = 0;
 
 	if (cur)
@@ -343,6 +345,16 @@ xfs_scrub_bmap_extent(
 			xfs_scrub_fblock_xref_check_ok(info->sc,
 					info->whichfork, irec->br_startoff,
 					!is_freesp);
+	} else {
+		xfs_ilock(mp->m_rbmip, XFS_ILOCK_SHARED | XFS_ILOCK_RTBITMAP);
+		error = xfs_rtalloc_extent_is_free(mp, info->sc->tp,
+				irec->br_startblock, irec->br_blockcount,
+				&is_free);
+		if (xfs_scrub_should_xref(info->sc, &error, NULL))
+			xfs_scrub_fblock_xref_check_ok(info->sc,
+					info->whichfork, irec->br_startoff,
+					!is_free);
+		xfs_iunlock(mp->m_rbmip, XFS_ILOCK_SHARED | XFS_ILOCK_RTBITMAP);
 	}
 
 	/* Cross-reference with inobt. */
