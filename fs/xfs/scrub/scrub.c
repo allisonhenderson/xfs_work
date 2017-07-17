@@ -352,6 +352,8 @@ xfs_scrub_metadata(
 		warned = true;
 	}
 
+	atomic_inc(&mp->m_scrubbers);
+
 retry_op:
 	/* Set up for the operation. */
 	memset(&sc, 0, sizeof(sc));
@@ -374,7 +376,7 @@ retry_op:
 		 */
 		error = xfs_scrub_teardown(&sc, ip, 0);
 		if (error)
-			goto out;
+			goto out_dec;
 		try_harder = true;
 		goto retry_op;
 	} else if (error)
@@ -386,6 +388,8 @@ retry_op:
 
 out_teardown:
 	error = xfs_scrub_teardown(&sc, ip, error);
+out_dec:
+	atomic_dec(&mp->m_scrubbers);
 out:
 	trace_xfs_scrub_done(ip, sm, error);
 	return error;

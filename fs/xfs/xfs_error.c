@@ -309,6 +309,9 @@ xfs_error_report(
 	int			linenum,
 	void			*ra)
 {
+	if (atomic_read(&mp->m_scrubbers) > 0)
+		return;
+
 	if (level <= xfs_error_level) {
 		xfs_alert_tag(mp, XFS_PTAG_ERROR_REPORT,
 		"Internal error %s at line %d of file %s.  Caller %pS",
@@ -328,6 +331,9 @@ xfs_corruption_error(
 	int			linenum,
 	void			*ra)
 {
+	if (atomic_read(&mp->m_scrubbers) > 0)
+		return;
+
 	if (level <= xfs_error_level)
 		xfs_hex_dump(p, 64);
 	xfs_error_report(tag, level, mp, filename, linenum, ra);
@@ -343,6 +349,9 @@ xfs_verifier_error(
 	struct xfs_buf		*bp)
 {
 	struct xfs_mount *mp = bp->b_target->bt_mount;
+
+	if (atomic_read(&mp->m_scrubbers) > 0)
+		return;
 
 	xfs_alert(mp, "Metadata %s detected at %pF, %s block 0x%llx",
 		  bp->b_error == -EFSBADCRC ? "CRC error" : "corruption",

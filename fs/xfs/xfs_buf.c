@@ -42,6 +42,7 @@
 #include "xfs_mount.h"
 #include "xfs_trace.h"
 #include "xfs_log.h"
+#include "xfs_error.h"
 
 static kmem_zone_t *xfs_buf_zone;
 
@@ -577,6 +578,8 @@ _xfs_buf_find(
 	 */
 	eofs = XFS_FSB_TO_BB(btp->bt_mount, btp->bt_mount->m_sb.sb_dblocks);
 	if (cmap.bm_bn < 0 || cmap.bm_bn >= eofs) {
+		if (atomic_read(&btp->bt_mount->m_scrubbers) > 0)
+			return NULL;
 		/*
 		 * XXX (dgc): we should really be returning -EFSCORRUPTED here,
 		 * but none of the higher level infrastructure supports

@@ -46,6 +46,9 @@ void func(const struct xfs_mount *mp, const char *fmt, ...)	\
 	va_list			args;				\
 	int			level;				\
 								\
+	if (mp && atomic_read(&mp->m_scrubbers) > 0)		\
+		return;						\
+								\
 	va_start(args, fmt);					\
 								\
 	vaf.fmt = fmt;						\
