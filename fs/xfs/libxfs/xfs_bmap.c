@@ -6496,7 +6496,7 @@ xfs_bmap_finish_one(
 	xfs_filblks_t			*blockcount,
 	xfs_exntst_t			state)
 {
-	xfs_fsblock_t			firstfsb;
+	xfs_fsblock_t			firstfsb = NULLFSBLOCK;
 	int				error = 0;
 
 	trace_xfs_bmap_deferred(tp->t_mountp,
