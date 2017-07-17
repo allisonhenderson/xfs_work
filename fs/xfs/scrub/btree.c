@@ -31,6 +31,7 @@
 #include "xfs_sb.h"
 #include "xfs_inode.h"
 #include "xfs_alloc.h"
+#include "xfs_rmap.h"
 #include "scrub/scrub.h"
 #include "scrub/common.h"
 #include "scrub/btree.h"
@@ -389,6 +390,7 @@ xfs_scrub_btree_check_block_owner(
 	xfs_agnumber_t			agno;
 	xfs_agblock_t			bno;
 	bool				is_freesp;
+	bool				has_rmap;
 	int				error = 0;
 
 	agno = xfs_daddr_to_agno(bs->cur->bc_mp, daddr);
@@ -409,6 +411,15 @@ xfs_scrub_btree_check_block_owner(
 		if (xfs_scrub_should_xref(bs->sc, &error, &psa->bno_cur))
 			xfs_scrub_btree_xref_check_ok(bs->sc, psa->bno_cur, 0,
 					!is_freesp);
+	}
+
+	/* Check that there's an rmap for this. */
+	if (psa->rmap_cur) {
+		error = xfs_rmap_record_exists(psa->rmap_cur, bno, 1, bs->oinfo,
+				&has_rmap);
+		if (xfs_scrub_should_xref(bs->sc, &error, NULL))
+			xfs_scrub_btree_xref_check_ok(bs->sc, psa->bno_cur, 0,
+					has_rmap);
 	}
 
 	if (psa == &sa)

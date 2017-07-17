@@ -126,6 +126,90 @@ struct xfs_scrub_bmap_info {
 	int				whichfork;
 };
 
+/* Make sure that we have rmapbt records for this extent. */
+STATIC void
+xfs_scrub_bmap_xref_rmap(
+	struct xfs_scrub_bmap_info	*info,
+	struct xfs_scrub_ag		*sa,
+	struct xfs_bmbt_irec		*irec,
+	xfs_fsblock_t			bno)
+{
+	struct xfs_rmap_irec		rmap;
+	uint64_t			owner;
+	xfs_fileoff_t			offset;
+	unsigned long long		rmap_end;
+	unsigned int			rflags;
+	int				has_rmap;
+	int				error;
+
+	if (info->whichfork == XFS_COW_FORK) {
+		owner = XFS_RMAP_OWN_COW;
+		offset = 0;
+	} else {
+		owner = info->sc->ip->i_ino;
+		offset = irec->br_startoff;
+	}
+
+	/* Look for a corresponding rmap. */
+	rflags = 0;
+	if (info->whichfork == XFS_ATTR_FORK)
+		rflags |= XFS_RMAP_ATTR_FORK;
+
+	if (info->is_shared) {
+		error = xfs_rmap_lookup_le_range(sa->rmap_cur, bno, owner,
+				offset, rflags, &rmap,
+				&has_rmap);
+		if (!xfs_scrub_should_xref(info->sc, &error, &sa->rmap_cur) ||
+		    !xfs_scrub_fblock_xref_check_ok(info->sc, info->whichfork,
+				irec->br_startoff, has_rmap))
+			return;
+	} else {
+		error = xfs_rmap_lookup_le(sa->rmap_cur, bno, 0, owner,
+				offset, rflags, &has_rmap);
+		if (!xfs_scrub_should_xref(info->sc, &error, &sa->rmap_cur) ||
+		    !xfs_scrub_fblock_xref_check_ok(info->sc, info->whichfork,
+				irec->br_startoff, has_rmap))
+			return;
+
+		error = xfs_rmap_get_rec(sa->rmap_cur, &rmap,
+				&has_rmap);
+		if (!xfs_scrub_should_xref(info->sc, &error, &sa->rmap_cur) ||
+		    !xfs_scrub_fblock_xref_check_ok(info->sc, info->whichfork,
+				irec->br_startoff, has_rmap))
+			return;
+	}
+
+	/* Check the rmap. */
+	rmap_end = (unsigned long long)rmap.rm_startblock + rmap.rm_blockcount;
+	xfs_scrub_fblock_xref_check_ok(info->sc, info->whichfork,
+			irec->br_startoff,
+			rmap.rm_startblock <= bno &&
+			bno + irec->br_blockcount <= rmap_end);
+
+	if (owner != XFS_RMAP_OWN_COW) {
+		rmap_end = (unsigned long long)rmap.rm_offset +
+				rmap.rm_blockcount;
+		xfs_scrub_fblock_xref_check_ok(info->sc, info->whichfork,
+				irec->br_startoff,
+				rmap.rm_offset <= offset &&
+				offset + irec->br_blockcount <= rmap_end);
+	} else {
+		/*
+		 * We don't set the unwritten flag for CoW
+		 * staging extent rmaps; everything is unwritten.
+		 */
+		irec->br_state = XFS_EXT_NORM;
+	}
+	xfs_scrub_fblock_xref_check_ok(info->sc, info->whichfork,
+			irec->br_startoff,
+			rmap.rm_owner == owner &&
+			(irec->br_state != XFS_EXT_UNWRITTEN ||
+			 (rmap.rm_flags & XFS_RMAP_UNWRITTEN)) &&
+			(info->whichfork != XFS_ATTR_FORK ||
+			 (rmap.rm_flags & XFS_RMAP_ATTR_FORK)) &&
+			!(rmap.rm_flags & XFS_RMAP_BMBT_BLOCK));
+}
+
 /* Scrub a single extent record. */
 STATIC int
 xfs_scrub_bmap_extent(
@@ -223,6 +307,10 @@ xfs_scrub_bmap_extent(
 					info->whichfork, irec->br_startoff,
 					!has_inodes);
 	}
+
+	/* Cross-reference with rmapbt. */
+	if (sa.rmap_cur)
+		xfs_scrub_bmap_xref_rmap(info, &sa, irec, bno);
 
 	xfs_scrub_ag_free(info->sc, &sa);
 out:

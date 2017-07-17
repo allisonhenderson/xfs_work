@@ -37,6 +37,7 @@
 #include "xfs_log.h"
 #include "xfs_trans_priv.h"
 #include "xfs_reflink.h"
+#include "xfs_rmap.h"
 #include "scrub/xfs_scrub.h"
 #include "scrub/scrub.h"
 #include "scrub/common.h"
@@ -91,6 +92,35 @@ out_unlock:
 }
 
 /* Inode core */
+
+/* Make sure the rmap thinks there's an inode here. */
+STATIC int
+xfs_scrub_inode_xref_rmap(
+	struct xfs_scrub_context	*sc,
+	xfs_ino_t			ino)
+{
+	struct xfs_owner_info		oinfo;
+	struct xfs_scrub_ag		sa = { 0 };
+	xfs_agnumber_t			agno;
+	xfs_agblock_t			agbno;
+	bool				has_rmap;
+	int				error;
+
+	agno = XFS_INO_TO_AGNO(sc->mp, ino);
+	agbno = XFS_INO_TO_AGBNO(sc->mp, ino);
+	xfs_rmap_ag_owner(&oinfo, XFS_RMAP_OWN_INODES);
+	error = xfs_scrub_ag_init(sc, agno, &sa);
+	if (!xfs_scrub_xref_op_ok(sc, agno, agbno, &error))
+		return error;
+
+	error = xfs_rmap_record_exists(sa.rmap_cur, agbno,
+			1, &oinfo, &has_rmap);
+	if (xfs_scrub_should_xref(sc, &error, &sa.rmap_cur))
+		xfs_scrub_ino_xref_check_ok(sc, ino, NULL,
+				has_rmap);
+	xfs_scrub_ag_free(sc, &sa);
+	return error;
+}
 
 /* Scrub an inode. */
 int
@@ -329,6 +359,12 @@ xfs_scrub_inode(
 				XFS_INO_TO_AGBNO(mp, ino), &error))
 			goto out;
 		xfs_scrub_ino_preen_ok(sc, bp, has_shared == true);
+	}
+
+	if (xfs_sb_version_hasrmapbt(&mp->m_sb)) {
+		error = xfs_scrub_inode_xref_rmap(sc, ino);
+		if (error)
+			goto out;
 	}
 
 out:
