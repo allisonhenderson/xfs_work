@@ -38,6 +38,8 @@
 #include "xfs_trans_priv.h"
 #include "xfs_reflink.h"
 #include "xfs_rmap.h"
+#include "xfs_bmap.h"
+#include "xfs_bmap_util.h"
 #include "scrub/xfs_scrub.h"
 #include "scrub/scrub.h"
 #include "scrub/common.h"
@@ -122,6 +124,62 @@ xfs_scrub_inode_xref_rmap(
 	return error;
 }
 
+/* Cross reference the inode fields with the forks. */
+STATIC void
+xfs_scrub_inode_xref_bmap(
+	struct xfs_scrub_context	*sc,
+	struct xfs_dinode		*dip,
+	uint16_t			mode,
+	uint16_t			flags)
+{
+	struct xfs_bmbt_irec		got;
+	struct xfs_ifork		*ifp;
+	struct xfs_mount		*mp = sc->mp;
+	xfs_fileoff_t			lblk;
+	xfs_extnum_t			idx;
+	xfs_extnum_t			nextents;
+	xfs_filblks_t			count;
+	xfs_filblks_t			acount;
+	bool				found;
+	int				error;
+
+	/* Walk all the extents to check nextents/naextents/nblocks. */
+	error = xfs_bmap_count_blocks(sc->tp, sc->ip, XFS_DATA_FORK,
+			&nextents, &count);
+	if (!xfs_scrub_should_xref(sc, &error, NULL))
+		return;
+	xfs_scrub_ino_xref_check_ok(sc, sc->ip->i_ino, NULL,
+			nextents >= be32_to_cpu(dip->di_nextents));
+
+	error = xfs_bmap_count_blocks(sc->tp, sc->ip, XFS_ATTR_FORK,
+			&nextents, &acount);
+	if (!xfs_scrub_should_xref(sc, &error, NULL))
+		return;
+	xfs_scrub_ino_xref_check_ok(sc, sc->ip->i_ino, NULL,
+			nextents == be16_to_cpu(dip->di_anextents));
+
+	/* Check nblocks against the inode. */
+	xfs_scrub_ino_xref_check_ok(sc, sc->ip->i_ino, NULL,
+			count + acount == be64_to_cpu(dip->di_nblocks));
+
+	/* Make sure we don't have any written extents after EOF. */
+	if (S_ISREG(mode) && !(flags & XFS_DIFLAG_PREALLOC) &&
+	    (dip->di_format == XFS_DINODE_FMT_EXTENTS ||
+	     dip->di_format == XFS_DINODE_FMT_BTREE)) {
+		lblk = XFS_B_TO_FSB(mp, i_size_read(VFS_I(sc->ip)));
+		ifp = XFS_IFORK_PTR(sc->ip, XFS_DATA_FORK);
+		found = xfs_iext_lookup_extent(sc->ip, ifp, lblk, &idx, &got);
+		while (found) {
+			xfs_scrub_fblock_xref_check_ok(sc, XFS_DATA_FORK,
+					got.br_startoff,
+					got.br_startoff < lblk ||
+					got.br_state != XFS_EXT_NORM);
+			lblk = got.br_startoff + got.br_blockcount;
+			found = xfs_iext_get_extent(ifp, ++idx, &got);
+		}
+	}
+}
+
 /* Scrub an inode. */
 int
 xfs_scrub_inode(
@@ -136,7 +194,7 @@ xfs_scrub_inode(
 	size_t				fork_recs;
 	unsigned long long		isize;
 	uint64_t			flags2;
-	uint32_t			nextents;
+	xfs_extnum_t			nextents;
 	uint32_t			extsize;
 	uint32_t			cowextsize;
 	uint16_t			flags;
@@ -366,6 +424,9 @@ xfs_scrub_inode(
 		if (error)
 			goto out;
 	}
+
+	/* Cross reference the inode fields with the forks. */
+	xfs_scrub_inode_xref_bmap(sc, dip, mode, flags);
 
 out:
 	if (bp)

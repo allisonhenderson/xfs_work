@@ -29,9 +29,12 @@
 #include "xfs_log_format.h"
 #include "xfs_trans.h"
 #include "xfs_sb.h"
+#include "xfs_inode.h"
+#include "xfs_icache.h"
 #include "xfs_rmap.h"
 #include "xfs_alloc.h"
 #include "xfs_ialloc.h"
+#include "xfs_bmap_btree.h"
 #include "xfs_refcount.h"
 #include "scrub/xfs_scrub.h"
 #include "scrub/scrub.h"
@@ -110,6 +113,161 @@ xfs_scrub_rmapbt_xref_refc(
 			crec.rc_startblock <= irec->rm_startblock &&
 			rec_end >= irec->rm_startblock + irec->rm_blockcount &&
 			crec.rc_refcount == 1);
+}
+
+struct xfs_scrub_rmapbt_xref_bmbt {
+	xfs_fsblock_t		fsb;
+	xfs_extlen_t		len;
+};
+
+/* Is this the bmbt block we're looking for? */
+STATIC int
+xfs_scrub_rmapbt_xref_bmap_find_bmbt_block(
+	struct xfs_btree_cur	*cur,
+	int			level,
+	void			*data)
+{
+	struct xfs_buf		*bp;
+	struct xfs_scrub_rmapbt_xref_bmbt	*x = data;
+	xfs_fsblock_t		fsb;
+
+	xfs_btree_get_block(cur, level, &bp);
+	if (!bp)
+		return 0;
+
+	fsb = XFS_DADDR_TO_FSB(cur->bc_mp, bp->b_bn);
+	if (fsb >= x->fsb && fsb < x->fsb + x->len)
+		return XFS_BTREE_QUERY_RANGE_ABORT;
+	return 0;
+}
+
+/* Try to find a matching bmap extent for this inode data/attr fork rmap. */
+STATIC void
+xfs_scrub_rmapbt_xref_bmap(
+	struct xfs_scrub_btree	*bs,
+	struct xfs_rmap_irec	*irec,
+	bool			is_attr,
+	bool			is_bmbt,
+	bool			is_unwritten)
+{
+	struct xfs_scrub_rmapbt_xref_bmbt	x;
+	struct xfs_bmbt_irec	got;
+	struct xfs_inode	*ip;
+	struct xfs_ifork	*ifp;
+	struct xfs_btree_cur	*cur;
+	xfs_fileoff_t		off;
+	xfs_fileoff_t		endoff;
+	xfs_fsblock_t		fsb;
+	xfs_extnum_t		idx;
+	xfs_agnumber_t		agno;
+	uint			lockflags;
+	bool			found;
+	int			whichfork;
+	int			error;
+	uint8_t			fmt;
+
+	fsb = XFS_AGB_TO_FSB(bs->sc->mp, bs->sc->sa.agno, irec->rm_startblock);
+
+	/*
+	 * We can't access the AGI of a lower AG due to locking rules,
+	 * so skip this check if inodes aren't aligned and the inode is
+	 * in a lower AG.
+	 */
+	agno = XFS_INO_TO_AGNO(bs->sc->mp, irec->rm_owner);
+	if (!xfs_scrub_check_thoroughness(bs->sc,
+			bs->sc->mp->m_inoalign_mask != 0 ||
+			agno >= bs->sc->sa.agno))
+		return;
+
+	/* Grab the inode. */
+	error = xfs_iget(bs->sc->mp, bs->sc->tp, irec->rm_owner, 0, 0, &ip);
+	if (!xfs_scrub_should_xref(bs->sc, &error, NULL))
+		return;
+
+	whichfork = is_attr ? XFS_ATTR_FORK : XFS_DATA_FORK;
+	ifp = XFS_IFORK_PTR(ip, whichfork);
+	lockflags = XFS_IOLOCK_SHARED | XFS_MMAPLOCK_SHARED | XFS_ILOCK_SHARED;
+
+lock_again:
+	/*
+	 * Try to grab the inode lock.  We cannot block here because the
+	 * usual XFS locking order is inode -> AGF, whereas here we have
+	 * the AGF but want an inode.  Blocking here could result in
+	 * deadlock, so we'll take an incomplete check over that.
+	 */
+	if (!xfs_ilock_nowait(ip, lockflags))
+		goto out_rele;
+
+	/* Inode had better have extent maps. */
+	fmt = XFS_IFORK_FORMAT(ip, whichfork);
+	if (!xfs_scrub_btree_xref_check_ok(bs->sc, bs->cur, 0,
+			ifp != NULL &&
+			(fmt == XFS_DINODE_FMT_BTREE ||
+			 fmt == XFS_DINODE_FMT_EXTENTS)))
+		goto out_unlock;
+
+	/* If we haven't loaded the extent list, try to relock with excl. */
+	if (!(ifp->if_flags & XFS_IFEXTENTS)) {
+		if (!(lockflags & XFS_ILOCK_EXCL)) {
+			xfs_iunlock(ip, lockflags);
+			lockflags |= XFS_ILOCK_EXCL;
+			lockflags &= ~XFS_ILOCK_SHARED;
+			goto lock_again;
+		}
+		error = xfs_iread_extents(bs->sc->tp, ip, whichfork);
+		if (error)
+			goto out_unlock;
+	}
+
+	/* If this is a bmbt record, see if we can find it. */
+	if (is_bmbt) {
+		x.fsb = fsb;
+		x.len = irec->rm_blockcount;
+		cur = xfs_bmbt_init_cursor(bs->sc->mp, bs->sc->tp, ip,
+				whichfork);
+		error = xfs_btree_visit_blocks(cur,
+				xfs_scrub_rmapbt_xref_bmap_find_bmbt_block,
+				&x);
+		xfs_scrub_btree_xref_check_ok(bs->sc, cur, 0,
+				error == XFS_BTREE_QUERY_RANGE_ABORT);
+		xfs_btree_del_cursor(cur, error ? XFS_BTREE_ERROR :
+				XFS_BTREE_NOERROR);
+		goto out_unlock;
+	}
+
+	/* Now go make sure we find a bmap extent to cover this rmap. */
+	off = irec->rm_offset;
+	endoff = irec->rm_offset + irec->rm_blockcount - 1;
+	found = xfs_iext_lookup_extent(ip, ifp, off, &idx, &got);
+	xfs_scrub_btree_xref_check_ok(bs->sc, bs->cur, 0, found);
+	while (found) {
+		if (!xfs_scrub_btree_xref_check_ok(bs->sc, bs->cur, 0,
+				got.br_startoff <= off &&
+				got.br_startoff <= endoff))
+			goto out_unlock;
+		xfs_scrub_btree_xref_check_ok(bs->sc, bs->cur, 0,
+				(got.br_state == XFS_EXT_NORM ||
+				 is_unwritten) &&
+				(got.br_state == XFS_EXT_UNWRITTEN ||
+				 !is_unwritten) &&
+				got.br_startblock + (off - got.br_startoff) ==
+				fsb);
+
+		off = got.br_startoff + got.br_blockcount;
+		fsb = got.br_startblock + got.br_blockcount;
+		if (off >= endoff)
+			break;
+		found = xfs_iext_get_extent(ifp, ++idx, &got);
+		xfs_scrub_btree_xref_check_ok(bs->sc, bs->cur, 0,
+				found &&
+				got.br_startoff == off &&
+				got.br_startblock == fsb);
+	}
+
+out_unlock:
+	xfs_iunlock(ip, lockflags);
+out_rele:
+	iput(VFS_I(ip));
 }
 
 /* Scrub an rmapbt record. */
@@ -222,6 +380,10 @@ xfs_scrub_rmapbt_helper(
 		xfs_scrub_rmapbt_xref_refc(bs, &irec, non_inode, is_attr,
 				is_bmbt, is_unwritten);
 
+	/* Cross-reference with an inode's bmbt if possible. */
+	if (!non_inode)
+		xfs_scrub_rmapbt_xref_bmap(bs, &irec, is_attr, is_bmbt,
+				is_unwritten);
 out:
 	return error;
 }
