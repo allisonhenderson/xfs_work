@@ -69,10 +69,12 @@ xfs_scrub_iallocbt_chunk(
 	struct xfs_mount		*mp = bs->cur->bc_mp;
 	struct xfs_agf			*agf;
 	struct xfs_scrub_ag		*psa;
+	struct xfs_btree_cur		**xcur;
 	unsigned long long		rec_end;
 	xfs_agblock_t			eoag;
 	xfs_agblock_t			bno;
 	bool				is_freesp;
+	bool				has_inodes;
 	int				error = 0;
 
 	agf = XFS_BUF_TO_AGF(bs->sc->sa.agf_bp);
@@ -97,6 +99,21 @@ xfs_scrub_iallocbt_chunk(
 		if (xfs_scrub_should_xref(bs->sc, &error, &psa->bno_cur))
 			xfs_scrub_btree_xref_check_ok(bs->sc, psa->bno_cur, 0,
 					!is_freesp);
+	}
+
+	/* If we have a finobt, cross-reference with it. */
+	if (bs->cur == psa->fino_cur)
+		xcur = &psa->ino_cur;
+	else if (bs->cur == psa->ino_cur && irec->ir_freecount > 0)
+		xcur = &psa->fino_cur;
+	else
+		xcur = NULL;
+	if (xcur && *xcur) {
+		error = xfs_ialloc_has_inode_record(*xcur,
+				agino, agino, &has_inodes);
+		if (xfs_scrub_should_xref(bs->sc, &error, xcur))
+			xfs_scrub_btree_xref_check_ok(bs->sc, *xcur, 0,
+					has_inodes);
 	}
 
 	return true;

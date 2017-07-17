@@ -31,6 +31,7 @@
 #include "xfs_sb.h"
 #include "xfs_rmap.h"
 #include "xfs_alloc.h"
+#include "xfs_ialloc.h"
 #include "scrub/xfs_scrub.h"
 #include "scrub/scrub.h"
 #include "scrub/common.h"
@@ -67,6 +68,7 @@ xfs_scrub_rmapbt_helper(
 	bool				is_unwritten;
 	bool				is_bmbt;
 	bool				is_attr;
+	bool				has_inodes;
 	int				error;
 
 	error = xfs_rmap_btrec_to_irec(rec, &irec);
@@ -130,6 +132,28 @@ xfs_scrub_rmapbt_helper(
 		if (xfs_scrub_should_xref(bs->sc, &error, &psa->bno_cur))
 			xfs_scrub_btree_xref_check_ok(bs->sc, psa->bno_cur, 0,
 					!is_freesp);
+	}
+
+	/* Cross-reference with inobt. */
+	if (psa->ino_cur) {
+		error = xfs_ialloc_has_inodes_at_extent(psa->ino_cur,
+				irec.rm_startblock, irec.rm_blockcount,
+				&has_inodes);
+		if (xfs_scrub_should_xref(bs->sc, &error, &psa->ino_cur))
+			xfs_scrub_btree_xref_check_ok(bs->sc, psa->ino_cur, 0,
+					irec.rm_owner == XFS_RMAP_OWN_INODES ||
+					!has_inodes);
+	}
+
+	/* Cross-reference with finobt. */
+	if (psa->fino_cur) {
+		error = xfs_ialloc_has_inodes_at_extent(psa->fino_cur,
+				irec.rm_startblock, irec.rm_blockcount,
+				&has_inodes);
+		if (xfs_scrub_should_xref(bs->sc, &error, &psa->fino_cur))
+			xfs_scrub_btree_xref_check_ok(bs->sc, psa->fino_cur, 0,
+					irec.rm_owner == XFS_RMAP_OWN_INODES ||
+					!has_inodes);
 	}
 
 out:

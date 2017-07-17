@@ -31,6 +31,7 @@
 #include "xfs_sb.h"
 #include "xfs_rmap.h"
 #include "xfs_alloc.h"
+#include "xfs_ialloc.h"
 #include "scrub/xfs_scrub.h"
 #include "scrub/scrub.h"
 #include "scrub/common.h"
@@ -66,6 +67,7 @@ xfs_scrub_allocbt_helper(
 	xfs_agblock_t			bno;
 	xfs_extlen_t			flen;
 	xfs_extlen_t			len;
+	bool				has_inodes;
 	int				has_otherrec;
 	int				error = 0;
 
@@ -107,6 +109,24 @@ xfs_scrub_allocbt_helper(
 		xfs_scrub_btree_xref_check_ok(bs->sc, *xcur, 0,
 				fbno == bno && flen == len);
 		break;
+	}
+
+	/* Cross-reference with inobt. */
+	if (psa->ino_cur) {
+		error = xfs_ialloc_has_inodes_at_extent(psa->ino_cur, bno,
+				len, &has_inodes);
+		if (xfs_scrub_should_xref(bs->sc, &error, &psa->ino_cur))
+			xfs_scrub_btree_xref_check_ok(bs->sc, psa->ino_cur, 0,
+					!has_inodes);
+	}
+
+	/* Cross-reference with finobt. */
+	if (psa->fino_cur) {
+		error = xfs_ialloc_has_inodes_at_extent(psa->fino_cur, bno,
+				len, &has_inodes);
+		if (xfs_scrub_should_xref(bs->sc, &error, &psa->fino_cur))
+			xfs_scrub_btree_xref_check_ok(bs->sc, psa->ino_cur, 0,
+					!has_inodes);
 	}
 
 	return error;
