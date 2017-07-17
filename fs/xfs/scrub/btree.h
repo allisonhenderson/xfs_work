@@ -30,6 +30,16 @@ bool xfs_scrub_btree_op_ok(struct xfs_scrub_context *sc,
 bool xfs_scrub_btree_check_ok(struct xfs_scrub_context *sc,
 			      struct xfs_btree_cur *cur, int level, bool fs_ok);
 
+/* Check for btree xref operation errors. */
+bool xfs_scrub_btree_xref_op_ok(struct xfs_scrub_context *sc,
+				struct xfs_btree_cur *cur, int level,
+				int *error);
+
+/* Check for btree xref discrepancies. */
+bool xfs_scrub_btree_xref_check_ok(struct xfs_scrub_context *sc,
+				   struct xfs_btree_cur *cur, int level,
+				   bool fs_ok);
+
 struct xfs_scrub_btree;
 typedef int (*xfs_scrub_btree_rec_fn)(
 	struct xfs_scrub_btree	*bs,

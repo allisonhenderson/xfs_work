@@ -51,6 +51,36 @@
 /* Common code for the metadata scrubbers. */
 
 /* Check for operational errors. */
+static bool
+__xfs_scrub_op_ok(
+	struct xfs_scrub_context	*sc,
+	xfs_agnumber_t			agno,
+	xfs_agblock_t			bno,
+	int				*error,
+	bool				xref,
+	void				*ret_ip)
+{
+	switch (*error) {
+	case 0:
+		return true;
+	case -EDEADLOCK:
+		/* Used to restart an op with deadlock avoidance. */
+		trace_xfs_scrub_deadlock_retry(sc->ip, sc->sm, *error);
+		break;
+	case -EFSBADCRC:
+	case -EFSCORRUPTED:
+		/* Note the badness but don't abort. */
+		sc->sm->sm_flags |= xfs_scrub_corrupt_flag(xref);
+		*error = 0;
+		/* fall through */
+	default:
+		trace_xfs_scrub_op_error(sc, agno, bno, *error,
+				ret_ip);
+		break;
+	}
+	return false;
+}
+
 bool
 xfs_scrub_op_ok(
 	struct xfs_scrub_context	*sc,
@@ -58,34 +88,28 @@ xfs_scrub_op_ok(
 	xfs_agblock_t			bno,
 	int				*error)
 {
-	switch (*error) {
-	case 0:
-		return true;
-	case -EDEADLOCK:
-		/* Used to restart an op with deadlock avoidance. */
-		trace_xfs_scrub_deadlock_retry(sc->ip, sc->sm, *error);
-		break;
-	case -EFSBADCRC:
-	case -EFSCORRUPTED:
-		/* Note the badness but don't abort. */
-		sc->sm->sm_flags |= XFS_SCRUB_OFLAG_CORRUPT;
-		*error = 0;
-		/* fall through */
-	default:
-		trace_xfs_scrub_op_error(sc, agno, bno, *error,
-				__return_address);
-		break;
-	}
-	return false;
+	return __xfs_scrub_op_ok(sc, agno, bno, error, false, __return_address);
+}
+
+bool
+xfs_scrub_xref_op_ok(
+	struct xfs_scrub_context	*sc,
+	xfs_agnumber_t			agno,
+	xfs_agblock_t			bno,
+	int				*error)
+{
+	return __xfs_scrub_op_ok(sc, agno, bno, error, true, __return_address);
 }
 
 /* Check for operational errors for a file offset. */
-bool
-xfs_scrub_fblock_op_ok(
+static bool
+__xfs_scrub_fblock_op_ok(
 	struct xfs_scrub_context	*sc,
 	int				whichfork,
 	xfs_fileoff_t			offset,
-	int				*error)
+	int				*error,
+	bool				xref,
+	void				*ret_ip)
 {
 	switch (*error) {
 	case 0:
@@ -97,15 +121,37 @@ xfs_scrub_fblock_op_ok(
 	case -EFSBADCRC:
 	case -EFSCORRUPTED:
 		/* Note the badness but don't abort. */
-		sc->sm->sm_flags |= XFS_SCRUB_OFLAG_CORRUPT;
+		sc->sm->sm_flags |= xfs_scrub_corrupt_flag(xref);
 		*error = 0;
 		/* fall through */
 	default:
 		trace_xfs_scrub_file_op_error(sc, whichfork, offset, *error,
-				__return_address);
+				ret_ip);
 		break;
 	}
 	return false;
+}
+
+bool
+xfs_scrub_fblock_op_ok(
+	struct xfs_scrub_context	*sc,
+	int				whichfork,
+	xfs_fileoff_t			offset,
+	int				*error)
+{
+	return __xfs_scrub_fblock_op_ok(sc, whichfork, offset, error, false,
+			__return_address);
+}
+
+bool
+xfs_scrub_fblock_xref_op_ok(
+	struct xfs_scrub_context	*sc,
+	int				whichfork,
+	xfs_fileoff_t			offset,
+	int				*error)
+{
+	return __xfs_scrub_fblock_op_ok(sc, whichfork, offset, error, true,
+			__return_address);
 }
 
 /* Check for metadata block optimization possibilities. */
@@ -163,11 +209,13 @@ xfs_scrub_ino_preen_ok(
 }
 
 /* Check for metadata block corruption. */
-bool
-xfs_scrub_block_check_ok(
+static bool
+__xfs_scrub_block_check_ok(
 	struct xfs_scrub_context	*sc,
 	struct xfs_buf			*bp,
-	bool				fs_ok)
+	bool				fs_ok,
+	bool				xref,
+	void				*ret_ip)
 {
 	struct xfs_mount		*mp = sc->mp;
 	xfs_fsblock_t			fsbno;
@@ -181,18 +229,40 @@ xfs_scrub_block_check_ok(
 	agno = XFS_FSB_TO_AGNO(mp, fsbno);
 	bno = XFS_FSB_TO_AGBNO(mp, fsbno);
 
-	sc->sm->sm_flags |= XFS_SCRUB_OFLAG_CORRUPT;
-	trace_xfs_scrub_block_error(sc, agno, bno, __return_address);
+	sc->sm->sm_flags |= xfs_scrub_corrupt_flag(xref);
+	trace_xfs_scrub_block_error(sc, agno, bno, ret_ip);
 	return fs_ok;
 }
 
-/* Check for inode metadata corruption. */
 bool
-xfs_scrub_ino_check_ok(
+xfs_scrub_block_check_ok(
+	struct xfs_scrub_context	*sc,
+	struct xfs_buf			*bp,
+	bool				fs_ok)
+{
+	return __xfs_scrub_block_check_ok(sc, bp, fs_ok, false,
+			__return_address);
+}
+
+bool
+xfs_scrub_block_xref_check_ok(
+	struct xfs_scrub_context	*sc,
+	struct xfs_buf			*bp,
+	bool				fs_ok)
+{
+	return __xfs_scrub_block_check_ok(sc, bp, fs_ok, true,
+			__return_address);
+}
+
+/* Check for inode metadata corruption. */
+static bool
+__xfs_scrub_ino_check_ok(
 	struct xfs_scrub_context	*sc,
 	xfs_ino_t			ino,
 	struct xfs_buf			*bp,
-	bool				fs_ok)
+	bool				fs_ok,
+	bool				xref,
+	void				*ret_ip)
 {
 	struct xfs_inode		*ip = sc->ip;
 	struct xfs_mount		*mp = sc->mp;
@@ -212,12 +282,51 @@ xfs_scrub_ino_check_ok(
 		bno = XFS_INO_TO_AGINO(mp, ip->i_ino);
 	}
 
-	sc->sm->sm_flags |= XFS_SCRUB_OFLAG_CORRUPT;
-	trace_xfs_scrub_ino_error(sc, ino, agno, bno, __return_address);
+	sc->sm->sm_flags |= xfs_scrub_corrupt_flag(xref);
+	trace_xfs_scrub_ino_error(sc, ino, agno, bno, ret_ip);
 	return fs_ok;
 }
 
+bool
+xfs_scrub_ino_check_ok(
+	struct xfs_scrub_context	*sc,
+	xfs_ino_t			ino,
+	struct xfs_buf			*bp,
+	bool				fs_ok)
+{
+	return __xfs_scrub_ino_check_ok(sc, ino, bp, fs_ok, false,
+			__return_address);
+}
+
+bool
+xfs_scrub_ino_xref_check_ok(
+	struct xfs_scrub_context	*sc,
+	xfs_ino_t			ino,
+	struct xfs_buf			*bp,
+	bool				fs_ok)
+{
+	return __xfs_scrub_ino_check_ok(sc, ino, bp, fs_ok, true,
+			__return_address);
+}
+
 /* Check for file fork block corruption. */
+static bool
+__xfs_scrub_fblock_check_ok(
+	struct xfs_scrub_context	*sc,
+	int				whichfork,
+	xfs_fileoff_t			offset,
+	bool				fs_ok,
+	bool				xref,
+	void				*ret_ip)
+{
+	if (fs_ok)
+		return fs_ok;
+
+	sc->sm->sm_flags |= xfs_scrub_corrupt_flag(xref);
+	trace_xfs_scrub_fblock_error(sc, whichfork, offset, ret_ip);
+	return fs_ok;
+}
+
 bool
 xfs_scrub_fblock_check_ok(
 	struct xfs_scrub_context	*sc,
@@ -225,12 +334,19 @@ xfs_scrub_fblock_check_ok(
 	xfs_fileoff_t			offset,
 	bool				fs_ok)
 {
-	if (fs_ok)
-		return fs_ok;
+	return __xfs_scrub_fblock_check_ok(sc, whichfork, offset, fs_ok,
+			false, __return_address);
+}
 
-	sc->sm->sm_flags |= XFS_SCRUB_OFLAG_CORRUPT;
-	trace_xfs_scrub_fblock_error(sc, whichfork, offset, __return_address);
-	return fs_ok;
+bool
+xfs_scrub_fblock_xref_check_ok(
+	struct xfs_scrub_context	*sc,
+	int				whichfork,
+	xfs_fileoff_t			offset,
+	bool				fs_ok)
+{
+	return __xfs_scrub_fblock_check_ok(sc, whichfork, offset, fs_ok,
+			true, __return_address);
 }
 
 /* Check for inode metadata non-corruption problems. */
@@ -633,4 +749,42 @@ out_unlock:
 		iput(VFS_I(sc->ip));
 	sc->ip = NULL;
 	return error;
+}
+
+/*
+ * Predicate that decides if we need to evaluate the cross-reference check.
+ * If there was an error accessing the cross-reference btree, just delete
+ * the cursor and skip the check.
+ */
+bool
+xfs_scrub_should_xref(
+	struct xfs_scrub_context	*sc,
+	int				*error,
+	struct xfs_btree_cur		**curpp)
+{
+	/* If not a btree cross-reference, just check the error code. */
+	if (curpp == NULL) {
+		if (*error == 0)
+			return true;
+		goto fail;
+	}
+
+	ASSERT(*curpp != NULL);
+	/* If no error or we've already given up on xref, just bail out. */
+	if (*error == 0 || *curpp == NULL)
+		return true;
+
+	/* xref error, delete cursor and bail out. */
+	sc->sm->sm_flags |= XFS_SCRUB_OFLAG_XFAIL;
+	xfs_btree_del_cursor(*curpp, XFS_BTREE_ERROR);
+	*curpp = NULL;
+fail:
+	trace_xfs_scrub_xref_error(sc, *error, __return_address);
+
+	/*
+	 * Errors encountered during cross-referencing with another
+	 * data structure should not cause this scrubber to abort.
+	 */
+	*error = 0;
+	return false;
 }

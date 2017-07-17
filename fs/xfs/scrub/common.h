@@ -59,6 +59,14 @@ bool xfs_scrub_op_ok(struct xfs_scrub_context *sc, xfs_agnumber_t agno,
 bool xfs_scrub_fblock_op_ok(struct xfs_scrub_context *sc, int whichfork,
 			  xfs_fileoff_t offset, int *error);
 
+/* Check for operational xref errors for a block check. */
+bool xfs_scrub_xref_op_ok(struct xfs_scrub_context *sc, xfs_agnumber_t agno,
+			  xfs_agblock_t bno, int *error);
+
+/* Check for operational xref errors for a file offset check. */
+bool xfs_scrub_fblock_xref_op_ok(struct xfs_scrub_context *sc, int whichfork,
+				 xfs_fileoff_t offset, int *error);
+
 /* Check for metadata block optimization possibilities. */
 bool xfs_scrub_block_preen_ok(struct xfs_scrub_context *sc, struct xfs_buf *bp,
 			      bool fs_ok);
@@ -79,6 +87,18 @@ bool xfs_scrub_ino_check_ok(struct xfs_scrub_context *sc, xfs_ino_t ino,
 bool xfs_scrub_fblock_check_ok(struct xfs_scrub_context *sc, int whichfork,
 			       xfs_fileoff_t offset, bool fs_ok);
 
+/* Check for metadata block xref discrepancies. */
+bool xfs_scrub_block_xref_check_ok(struct xfs_scrub_context *sc,
+				   struct xfs_buf *bp, bool fs_ok);
+
+/* Check for inode metadata xref discrepancies. */
+bool xfs_scrub_ino_xref_check_ok(struct xfs_scrub_context *sc, xfs_ino_t ino,
+				 struct xfs_buf *bp, bool fs_ok);
+
+/* Check for file fork block xref discrepancies. */
+bool xfs_scrub_fblock_xref_check_ok(struct xfs_scrub_context *sc, int whichfork,
+				    xfs_fileoff_t offset, bool fs_ok);
+
 /* Check for inode metadata non-corruption weirdness problems. */
 bool xfs_scrub_ino_warn_ok(struct xfs_scrub_context *sc, struct xfs_buf *bp,
 			   bool fs_ok);
@@ -86,6 +106,10 @@ bool xfs_scrub_ino_warn_ok(struct xfs_scrub_context *sc, struct xfs_buf *bp,
 /* Check for file data block non-corruption weirdness problems. */
 bool xfs_scrub_fblock_warn_ok(struct xfs_scrub_context *sc, int whichfork,
 			      xfs_fileoff_t offset, bool fs_ok);
+
+/* Are we set up for a cross-referencing operation? */
+bool xfs_scrub_should_xref(struct xfs_scrub_context *sc, int *error,
+			   struct xfs_btree_cur **curpp);
 
 /* Signal an incomplete scrub. */
 bool xfs_scrub_check_thoroughness(struct xfs_scrub_context *sc, bool fs_ok);
@@ -140,5 +164,11 @@ int xfs_scrub_setup_ag_btree(struct xfs_scrub_context *sc,
 int xfs_scrub_get_inode(struct xfs_scrub_context *sc, struct xfs_inode *ip_in);
 int xfs_scrub_setup_inode_contents(struct xfs_scrub_context *sc,
 				   struct xfs_inode *ip, unsigned int resblks);
+
+/* Figure out the correct corruption flag for whatever's wrong. */
+static inline __u32 xfs_scrub_corrupt_flag(bool xref)
+{
+	return xref ? XFS_SCRUB_OFLAG_XCORRUPT : XFS_SCRUB_OFLAG_CORRUPT;
+}
 
 #endif	/* __XFS_SCRUB_COMMON_H__ */

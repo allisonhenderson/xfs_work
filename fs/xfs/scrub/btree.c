@@ -44,12 +44,14 @@ static const union xfs_btree_ptr nullptr = {
 };
 
 /* Check for btree operation errors . */
-bool
-xfs_scrub_btree_op_ok(
+static bool
+__xfs_scrub_btree_op_ok(
 	struct xfs_scrub_context	*sc,
 	struct xfs_btree_cur		*cur,
 	int				level,
-	int				*error)
+	int				*error,
+	bool				xref,
+	void				*ret_ip)
 {
 	if (*error == 0)
 		return true;
@@ -62,22 +64,67 @@ xfs_scrub_btree_op_ok(
 	case -EFSBADCRC:
 	case -EFSCORRUPTED:
 		/* Note the badness but don't abort. */
-		sc->sm->sm_flags |= XFS_SCRUB_OFLAG_CORRUPT;
+		sc->sm->sm_flags |= xfs_scrub_corrupt_flag(xref);
 		*error = 0;
 		/* fall through */
 	default:
 		if (cur->bc_flags & XFS_BTREE_ROOT_IN_INODE)
 			trace_xfs_scrub_ifork_btree_op_error(sc, cur, level,
-					*error, __return_address);
+					*error, ret_ip);
 		else
 			trace_xfs_scrub_btree_op_error(sc, cur, level,
-					*error, __return_address);
+					*error, ret_ip);
 		break;
 	}
 	return false;
 }
 
+bool
+xfs_scrub_btree_op_ok(
+	struct xfs_scrub_context	*sc,
+	struct xfs_btree_cur		*cur,
+	int				level,
+	int				*error)
+{
+	return __xfs_scrub_btree_op_ok(sc, cur, level, error, false,
+			__return_address);
+}
+
+bool
+xfs_scrub_btree_xref_op_ok(
+	struct xfs_scrub_context	*sc,
+	struct xfs_btree_cur		*cur,
+	int				level,
+	int				*error)
+{
+	return __xfs_scrub_btree_op_ok(sc, cur, level, error, true,
+			__return_address);
+}
+
 /* Check for btree corruption. */
+static bool
+__xfs_scrub_btree_check_ok(
+	struct xfs_scrub_context	*sc,
+	struct xfs_btree_cur		*cur,
+	int				level,
+	bool				fs_ok,
+	bool				xref,
+	void				*ret_ip)
+{
+	if (fs_ok)
+		return fs_ok;
+
+	sc->sm->sm_flags |= xfs_scrub_corrupt_flag(xref);
+
+	if (cur->bc_flags & XFS_BTREE_ROOT_IN_INODE)
+		trace_xfs_scrub_ifork_btree_error(sc, cur, level,
+				ret_ip);
+	else
+		trace_xfs_scrub_btree_error(sc, cur, level,
+				ret_ip);
+	return fs_ok;
+}
+
 bool
 xfs_scrub_btree_check_ok(
 	struct xfs_scrub_context	*sc,
@@ -85,18 +132,19 @@ xfs_scrub_btree_check_ok(
 	int				level,
 	bool				fs_ok)
 {
-	if (fs_ok)
-		return fs_ok;
+	return __xfs_scrub_btree_check_ok(sc, cur, level, fs_ok, false,
+			__return_address);
+}
 
-	sc->sm->sm_flags |= XFS_SCRUB_OFLAG_CORRUPT;
-
-	if (cur->bc_flags & XFS_BTREE_ROOT_IN_INODE)
-		trace_xfs_scrub_ifork_btree_error(sc, cur, level,
-				__return_address);
-	else
-		trace_xfs_scrub_btree_error(sc, cur, level,
-				__return_address);
-	return fs_ok;
+bool
+xfs_scrub_btree_xref_check_ok(
+	struct xfs_scrub_context	*sc,
+	struct xfs_btree_cur		*cur,
+	int				level,
+	bool				fs_ok)
+{
+	return __xfs_scrub_btree_check_ok(sc, cur, level, fs_ok, true,
+			__return_address);
 }
 
 /*
@@ -464,5 +512,6 @@ xfs_scrub_btree(
 	}
 
 out:
+
 	return error;
 }
