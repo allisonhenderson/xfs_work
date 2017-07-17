@@ -246,6 +246,10 @@ static const struct xfs_scrub_meta_ops meta_scrub_ops[] = {
 		.setup	= xfs_scrub_setup_symlink,
 		.scrub	= xfs_scrub_symlink,
 	},
+	{ /* parent pointers */
+		.setup	= xfs_scrub_setup_parent,
+		.scrub	= xfs_scrub_parent,
+	},
 };
 
 /* Dispatch metadata scrubbing. */
