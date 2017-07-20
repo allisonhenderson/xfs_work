@@ -111,6 +111,8 @@ restart:
 			skipped = 0;
 			break;
 		}
+		if (!next_index)
+			break;
 	}
 
 	if (skipped) {
