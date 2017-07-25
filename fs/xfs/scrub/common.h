@@ -38,6 +38,45 @@ xfs_scrub_trans_alloc(
 	return xfs_trans_alloc_empty(mp, tpp);
 }
 
+/* Check for operational errors for a block check. */
+bool xfs_scrub_op_ok(struct xfs_scrub_context *sc, xfs_agnumber_t agno,
+		     xfs_agblock_t bno, int *error);
+
+/* Check for operational errors for a file offset check. */
+bool xfs_scrub_fblock_op_ok(struct xfs_scrub_context *sc, int whichfork,
+			  xfs_fileoff_t offset, int *error);
+
+/* Check for metadata block optimization possibilities. */
+bool xfs_scrub_block_preen_ok(struct xfs_scrub_context *sc, struct xfs_buf *bp,
+			      bool fs_ok);
+
+/* Check for inode metadata optimization possibilities. */
+bool xfs_scrub_ino_preen_ok(struct xfs_scrub_context *sc, struct xfs_buf *bp,
+			    bool fs_ok);
+
+/* Check for metadata block corruption. */
+bool xfs_scrub_block_check_ok(struct xfs_scrub_context *sc, struct xfs_buf *bp,
+			      bool fs_ok);
+
+/* Check for inode metadata corruption. */
+bool xfs_scrub_ino_check_ok(struct xfs_scrub_context *sc, xfs_ino_t ino,
+			    struct xfs_buf *bp, bool fs_ok);
+
+/* Check for file fork block corruption. */
+bool xfs_scrub_fblock_check_ok(struct xfs_scrub_context *sc, int whichfork,
+			       xfs_fileoff_t offset, bool fs_ok);
+
+/* Check for inode metadata non-corruption weirdness problems. */
+bool xfs_scrub_ino_warn_ok(struct xfs_scrub_context *sc, struct xfs_buf *bp,
+			   bool fs_ok);
+
+/* Check for file data block non-corruption weirdness problems. */
+bool xfs_scrub_fblock_warn_ok(struct xfs_scrub_context *sc, int whichfork,
+			      xfs_fileoff_t offset, bool fs_ok);
+
+/* Signal an incomplete scrub. */
+bool xfs_scrub_check_thoroughness(struct xfs_scrub_context *sc, bool fs_ok);
+
 /* Setup functions */
 int xfs_scrub_setup_fs(struct xfs_scrub_context *sc, struct xfs_inode *ip);
 

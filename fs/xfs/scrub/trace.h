@@ -69,6 +69,204 @@ DEFINE_EVENT(xfs_scrub_class, name, \
 
 DEFINE_SCRUB_EVENT(xfs_scrub);
 DEFINE_SCRUB_EVENT(xfs_scrub_done);
+DEFINE_SCRUB_EVENT(xfs_scrub_deadlock_retry);
+
+TRACE_EVENT(xfs_scrub_op_error,
+	TP_PROTO(struct xfs_scrub_context *sc, xfs_agnumber_t agno,
+		 xfs_agblock_t bno, int error, void *ret_ip),
+	TP_ARGS(sc, agno, bno, error, ret_ip),
+	TP_STRUCT__entry(
+		__field(dev_t, dev)
+		__field(int, type)
+		__field(xfs_agnumber_t, agno)
+		__field(xfs_agblock_t, bno)
+		__field(int, error)
+		__field(void *, ret_ip)
+	),
+	TP_fast_assign(
+		__entry->dev = sc->mp->m_super->s_dev;
+		__entry->type = sc->sm->sm_type;
+		__entry->agno = agno;
+		__entry->bno = bno;
+		__entry->error = error;
+		__entry->ret_ip = ret_ip;
+	),
+	TP_printk("dev %d:%d type '%s' agno %u agbno %u error %d ret_ip %pF",
+		  MAJOR(__entry->dev), MINOR(__entry->dev),
+		  __print_symbolic(__entry->type, XFS_SCRUB_TYPE_DESC),
+		  __entry->agno,
+		  __entry->bno,
+		  __entry->error,
+		  __entry->ret_ip)
+);
+
+#define XFS_FORK_DESC \
+	{ XFS_DATA_FORK,	"data" }, \
+	{ XFS_ATTR_FORK,	"attr" }, \
+	{ XFS_COW_FORK,		"CoW" }
+
+TRACE_EVENT(xfs_scrub_file_op_error,
+	TP_PROTO(struct xfs_scrub_context *sc, int whichfork,
+		 xfs_fileoff_t offset, int error, void *ret_ip),
+	TP_ARGS(sc, whichfork, offset, error, ret_ip),
+	TP_STRUCT__entry(
+		__field(dev_t, dev)
+		__field(xfs_ino_t, ino)
+		__field(int, whichfork)
+		__field(int, type)
+		__field(xfs_fileoff_t, offset)
+		__field(int, error)
+		__field(void *, ret_ip)
+	),
+	TP_fast_assign(
+		__entry->dev = sc->ip->i_mount->m_super->s_dev;
+		__entry->ino = sc->ip->i_ino;
+		__entry->whichfork = whichfork;
+		__entry->type = sc->sm->sm_type;
+		__entry->offset = offset;
+		__entry->error = error;
+		__entry->ret_ip = ret_ip;
+	),
+	TP_printk("dev %d:%d ino %llu fork '%s' type '%s' offset %llu error %d ret_ip %pF",
+		  MAJOR(__entry->dev), MINOR(__entry->dev),
+		  __entry->ino,
+		  __print_symbolic(__entry->whichfork, XFS_FORK_DESC),
+		  __print_symbolic(__entry->type, XFS_SCRUB_TYPE_DESC),
+		  __entry->offset,
+		  __entry->error,
+		  __entry->ret_ip)
+);
+
+DECLARE_EVENT_CLASS(xfs_scrub_block_error_class,
+	TP_PROTO(struct xfs_scrub_context *sc, xfs_agnumber_t agno,
+		 xfs_agblock_t bno, void *ret_ip),
+	TP_ARGS(sc, agno, bno, ret_ip),
+	TP_STRUCT__entry(
+		__field(dev_t, dev)
+		__field(int, type)
+		__field(xfs_agnumber_t, agno)
+		__field(xfs_agblock_t, bno)
+		__field(void *, ret_ip)
+	),
+	TP_fast_assign(
+		__entry->dev = sc->mp->m_super->s_dev;
+		__entry->type = sc->sm->sm_type;
+		__entry->agno = agno;
+		__entry->bno = bno;
+		__entry->ret_ip = ret_ip;
+	),
+	TP_printk("dev %d:%d type '%s' agno %u agbno %u ret_ip %pF",
+		  MAJOR(__entry->dev), MINOR(__entry->dev),
+		  __print_symbolic(__entry->type, XFS_SCRUB_TYPE_DESC),
+		  __entry->agno,
+		  __entry->bno,
+		  __entry->ret_ip)
+)
+
+#define DEFINE_SCRUB_BLOCK_ERROR_EVENT(name) \
+DEFINE_EVENT(xfs_scrub_block_error_class, name, \
+	TP_PROTO(struct xfs_scrub_context *sc, xfs_agnumber_t agno, \
+		 xfs_agblock_t bno, void *ret_ip), \
+	TP_ARGS(sc, agno, bno, ret_ip))
+
+DEFINE_SCRUB_BLOCK_ERROR_EVENT(xfs_scrub_block_error);
+DEFINE_SCRUB_BLOCK_ERROR_EVENT(xfs_scrub_block_preen);
+
+DECLARE_EVENT_CLASS(xfs_scrub_ino_error_class,
+	TP_PROTO(struct xfs_scrub_context *sc, xfs_ino_t ino,
+		 xfs_agnumber_t agno, xfs_agblock_t bno, void *ret_ip),
+	TP_ARGS(sc, ino, agno, bno, ret_ip),
+	TP_STRUCT__entry(
+		__field(dev_t, dev)
+		__field(xfs_ino_t, ino)
+		__field(int, type)
+		__field(xfs_agnumber_t, agno)
+		__field(xfs_agblock_t, bno)
+		__field(void *, ret_ip)
+	),
+	TP_fast_assign(
+		__entry->dev = sc->mp->m_super->s_dev;
+		__entry->ino = ino;
+		__entry->type = sc->sm->sm_type;
+		__entry->agno = agno;
+		__entry->bno = bno;
+		__entry->ret_ip = ret_ip;
+	),
+	TP_printk("dev %d:%d ino %llu type '%s' agno %u agbno %u ret_ip %pF",
+		  MAJOR(__entry->dev), MINOR(__entry->dev),
+		  __entry->ino,
+		  __print_symbolic(__entry->type, XFS_SCRUB_TYPE_DESC),
+		  __entry->agno,
+		  __entry->bno,
+		  __entry->ret_ip)
+)
+
+#define DEFINE_SCRUB_INO_ERROR_EVENT(name) \
+DEFINE_EVENT(xfs_scrub_ino_error_class, name, \
+	TP_PROTO(struct xfs_scrub_context *sc, xfs_ino_t ino, \
+		 xfs_agnumber_t agno, xfs_agblock_t bno, void *ret_ip), \
+	TP_ARGS(sc, ino, agno, bno, ret_ip))
+
+DEFINE_SCRUB_INO_ERROR_EVENT(xfs_scrub_ino_error);
+DEFINE_SCRUB_INO_ERROR_EVENT(xfs_scrub_ino_preen);
+DEFINE_SCRUB_INO_ERROR_EVENT(xfs_scrub_ino_warning);
+
+DECLARE_EVENT_CLASS(xfs_scrub_fblock_error_class,
+	TP_PROTO(struct xfs_scrub_context *sc, int whichfork,
+		 xfs_fileoff_t offset, void *ret_ip),
+	TP_ARGS(sc, whichfork, offset, ret_ip),
+	TP_STRUCT__entry(
+		__field(dev_t, dev)
+		__field(xfs_ino_t, ino)
+		__field(int, whichfork)
+		__field(int, type)
+		__field(xfs_fileoff_t, offset)
+		__field(void *, ret_ip)
+	),
+	TP_fast_assign(
+		__entry->dev = sc->ip->i_mount->m_super->s_dev;
+		__entry->ino = sc->ip->i_ino;
+		__entry->whichfork = whichfork;
+		__entry->type = sc->sm->sm_type;
+		__entry->offset = offset;
+		__entry->ret_ip = ret_ip;
+	),
+	TP_printk("dev %d:%d ino %llu fork '%s' type '%s' offset %llu ret_ip %pF",
+		  MAJOR(__entry->dev), MINOR(__entry->dev),
+		  __entry->ino,
+		  __print_symbolic(__entry->whichfork, XFS_FORK_DESC),
+		  __print_symbolic(__entry->type, XFS_SCRUB_TYPE_DESC),
+		  __entry->offset,
+		  __entry->ret_ip)
+);
+
+#define DEFINE_SCRUB_FBLOCK_ERROR_EVENT(name) \
+DEFINE_EVENT(xfs_scrub_fblock_error_class, name, \
+	TP_PROTO(struct xfs_scrub_context *sc, int whichfork, \
+		 xfs_fileoff_t offset, void *ret_ip), \
+	TP_ARGS(sc, whichfork, offset, ret_ip))
+
+DEFINE_SCRUB_FBLOCK_ERROR_EVENT(xfs_scrub_fblock_error);
+DEFINE_SCRUB_FBLOCK_ERROR_EVENT(xfs_scrub_fblock_warning);
+
+TRACE_EVENT(xfs_scrub_incomplete,
+	TP_PROTO(struct xfs_scrub_context *sc, void *ret_ip),
+	TP_ARGS(sc, ret_ip),
+	TP_STRUCT__entry(
+		__field(dev_t, dev)
+		__field(int, type)
+		__field(void *, ret_ip)
+	),
+	TP_fast_assign(
+		__entry->dev = sc->mp->m_super->s_dev;
+		__entry->type = sc->sm->sm_type;
+		__entry->ret_ip = ret_ip;
+	),
+	TP_printk("dev %d:%d type '%s' ret_ip %pF",
+		  MAJOR(__entry->dev), MINOR(__entry->dev),
+		  __print_symbolic(__entry->type, XFS_SCRUB_TYPE_DESC),
+		  __entry->ret_ip)
+);
 
 #endif /* _TRACE_XFS_SCRUB_TRACE_H */
 
