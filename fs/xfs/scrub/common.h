@@ -93,4 +93,14 @@ bool xfs_scrub_check_thoroughness(struct xfs_scrub_context *sc, bool fs_ok);
 /* Setup functions */
 int xfs_scrub_setup_fs(struct xfs_scrub_context *sc, struct xfs_inode *ip);
 
+void xfs_scrub_ag_free(struct xfs_scrub_context *sc, struct xfs_scrub_ag *sa);
+int xfs_scrub_ag_init(struct xfs_scrub_context *sc, xfs_agnumber_t agno,
+		      struct xfs_scrub_ag *sa);
+int xfs_scrub_ag_read_headers(struct xfs_scrub_context *sc, xfs_agnumber_t agno,
+			      struct xfs_buf **agi, struct xfs_buf **agf,
+			      struct xfs_buf **agfl);
+void xfs_scrub_ag_btcur_free(struct xfs_scrub_ag *sa);
+int xfs_scrub_ag_btcur_init(struct xfs_scrub_context *sc,
+			    struct xfs_scrub_ag *sa);
+
 #endif	/* __XFS_SCRUB_COMMON_H__ */
