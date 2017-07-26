@@ -42,6 +42,7 @@
 #include "xfs_rmap_btree.h"
 #include "scrub/xfs_scrub.h"
 #include "scrub/scrub.h"
+#include "scrub/common.h"
 #include "scrub/trace.h"
 
 /*
@@ -108,6 +109,34 @@
  * will be set.
  */
 
+/*
+ * Test scrubber -- userspace uses this to probe if we're willing to
+ * scrub or repair a given mountpoint.
+ */
+int
+xfs_scrub_tester(
+	struct xfs_scrub_context	*sc)
+{
+	if (sc->sm->sm_ino || sc->sm->sm_agno)
+		return -EINVAL;
+	if (sc->sm->sm_gen & XFS_SCRUB_OFLAG_CORRUPT)
+		sc->sm->sm_flags |= XFS_SCRUB_OFLAG_CORRUPT;
+	if (sc->sm->sm_gen & XFS_SCRUB_OFLAG_PREEN)
+		sc->sm->sm_flags |= XFS_SCRUB_OFLAG_PREEN;
+	if (sc->sm->sm_gen & XFS_SCRUB_OFLAG_XFAIL)
+		sc->sm->sm_flags |= XFS_SCRUB_OFLAG_XFAIL;
+	if (sc->sm->sm_gen & XFS_SCRUB_OFLAG_XCORRUPT)
+		sc->sm->sm_flags |= XFS_SCRUB_OFLAG_XCORRUPT;
+	if (sc->sm->sm_gen & XFS_SCRUB_OFLAG_INCOMPLETE)
+		sc->sm->sm_flags |= XFS_SCRUB_OFLAG_INCOMPLETE;
+	if (sc->sm->sm_gen & XFS_SCRUB_OFLAG_WARNING)
+		sc->sm->sm_flags |= XFS_SCRUB_OFLAG_WARNING;
+	if (sc->sm->sm_gen & ~XFS_SCRUB_FLAGS_OUT)
+		return -ENOENT;
+
+	return 0;
+}
+
 /* Scrub setup and teardown */
 
 /* Free all the resources and finish the transactions. */
@@ -126,6 +155,10 @@ xfs_scrub_teardown(
 /* Scrubbing dispatch. */
 
 static const struct xfs_scrub_meta_ops meta_scrub_ops[] = {
+	{ /* ioctl presence test */
+		.setup	= xfs_scrub_setup_fs,
+		.scrub	= xfs_scrub_tester,
+	},
 };
 
 /* Dispatch metadata scrubbing. */

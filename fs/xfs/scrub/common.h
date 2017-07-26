@@ -17,29 +17,28 @@
  * along with this program; if not, write the Free Software Foundation,
  * Inc.,  51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-#ifndef __XFS_SCRUB_SCRUB_H__
-#define __XFS_SCRUB_SCRUB_H__
+#ifndef __XFS_SCRUB_COMMON_H__
+#define __XFS_SCRUB_COMMON_H__
 
-struct xfs_scrub_context;
+/*
+ * Grab a transaction.  If we're going to repair something, we need to
+ * ensure there's enough reservation to make all the changes.  If not,
+ * we can use an empty transaction.
+ */
+static inline int
+xfs_scrub_trans_alloc(
+	struct xfs_scrub_metadata	*sm,
+	struct xfs_mount		*mp,
+	struct xfs_trans_res		*resp,
+	uint				blocks,
+	uint				rtextents,
+	uint				flags,
+	struct xfs_trans		**tpp)
+{
+	return xfs_trans_alloc_empty(mp, tpp);
+}
 
-struct xfs_scrub_meta_ops {
-	int		(*setup)(struct xfs_scrub_context *,
-				 struct xfs_inode *);
-	int		(*scrub)(struct xfs_scrub_context *);
-	bool		(*has)(struct xfs_sb *);
-};
+/* Setup functions */
+int xfs_scrub_setup_fs(struct xfs_scrub_context *sc, struct xfs_inode *ip);
 
-struct xfs_scrub_context {
-	/* General scrub state. */
-	struct xfs_mount		*mp;
-	struct xfs_scrub_metadata	*sm;
-	const struct xfs_scrub_meta_ops	*ops;
-	struct xfs_trans		*tp;
-	struct xfs_inode		*ip;
-	bool				try_harder;
-};
-
-/* Metadata scrubbers */
-int xfs_scrub_tester(struct xfs_scrub_context *sc);
-
-#endif	/* __XFS_SCRUB_SCRUB_H__ */
+#endif	/* __XFS_SCRUB_COMMON_H__ */
