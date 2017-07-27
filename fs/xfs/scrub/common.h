@@ -20,6 +20,19 @@
 #ifndef __XFS_SCRUB_COMMON_H__
 #define __XFS_SCRUB_COMMON_H__
 
+/* Should we end the scrub early? */
+static inline bool
+xfs_scrub_should_terminate(
+	int		*error)
+{
+	if (fatal_signal_pending(current)) {
+		if (*error == 0)
+			*error = -EAGAIN;
+		return true;
+	}
+	return false;
+}
+
 /*
  * Grab a transaction.  If we're going to repair something, we need to
  * ensure there's enough reservation to make all the changes.  If not,

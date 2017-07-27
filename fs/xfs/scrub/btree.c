@@ -99,6 +99,154 @@ xfs_scrub_btree_check_ok(
 	return fs_ok;
 }
 
+/* Check a btree pointer. */
+static int
+xfs_scrub_btree_ptr(
+	struct xfs_scrub_btree		*bs,
+	int				level,
+	union xfs_btree_ptr		*ptr)
+{
+	struct xfs_btree_cur		*cur = bs->cur;
+	xfs_daddr_t			daddr;
+	xfs_daddr_t			eofs;
+
+	if (!xfs_scrub_btree_check_ok(bs->sc, cur, level,
+			xfs_btree_diff_two_ptrs(cur, ptr, &nullptr) != 0))
+		goto corrupt;
+	if (cur->bc_flags & XFS_BTREE_LONG_PTRS) {
+		daddr = XFS_FSB_TO_DADDR(cur->bc_mp, be64_to_cpu(ptr->l));
+	} else {
+		if (!xfs_scrub_btree_check_ok(bs->sc, cur, level,
+				cur->bc_private.a.agno != NULLAGNUMBER))
+			goto corrupt;
+
+		daddr = XFS_AGB_TO_DADDR(cur->bc_mp, cur->bc_private.a.agno,
+				be32_to_cpu(ptr->s));
+	}
+	eofs = XFS_FSB_TO_BB(cur->bc_mp, cur->bc_mp->m_sb.sb_dblocks);
+	if (!xfs_scrub_btree_check_ok(bs->sc, cur, level,
+			daddr != 0 && daddr < eofs))
+		goto corrupt;
+
+	return 0;
+
+corrupt:
+	return -EFSCORRUPTED;
+}
+
+/* Check that a btree block's sibling matches what we expect it. */
+STATIC int
+xfs_scrub_btree_block_check_sibling(
+	struct xfs_scrub_btree		*bs,
+	int				level,
+	int				direction,
+	union xfs_btree_ptr		*sibling)
+{
+	struct xfs_btree_cur		*cur = bs->cur;
+	struct xfs_btree_block		*pblock;
+	struct xfs_buf			*pbp;
+	struct xfs_btree_cur		*ncur;
+	union xfs_btree_ptr		*pp;
+	int				success;
+	int				error;
+
+	if (!xfs_btree_diff_two_ptrs(cur, &nullptr, sibling))
+		return 0;
+
+	error = xfs_btree_dup_cursor(cur, &ncur);
+	if (error)
+		return error;
+
+	if (direction > 0)
+		error = xfs_btree_increment(ncur, level + 1, &success);
+	else
+		error = xfs_btree_decrement(ncur, level + 1, &success);
+	if (!xfs_scrub_btree_op_ok(bs->sc, cur, level + 1, &error) ||
+	    !xfs_scrub_btree_check_ok(bs->sc, cur, level + 1, success))
+		goto out;
+
+	pblock = xfs_btree_get_block(ncur, level + 1, &pbp);
+	pp = xfs_btree_ptr_addr(ncur, ncur->bc_ptrs[level + 1], pblock);
+	error = xfs_scrub_btree_ptr(bs, level + 1, pp);
+	if (error) {
+		/*
+		 * _scrub_btree_ptr already recorded a garbage sibling.
+		 * Don't let the EFSCORRUPTED bubble up and prevent more
+		 * scanning of the data structure.
+		 */
+		error = 0;
+		goto out;
+	}
+
+	xfs_scrub_btree_check_ok(bs->sc, cur, level,
+			!xfs_btree_diff_two_ptrs(cur, pp, sibling));
+out:
+	xfs_btree_del_cursor(ncur, XFS_BTREE_ERROR);
+	return error;
+}
+
+/* Check the siblings of a btree block. */
+STATIC int
+xfs_scrub_btree_block_check_siblings(
+	struct xfs_scrub_btree		*bs,
+	struct xfs_btree_block		*block)
+{
+	struct xfs_btree_cur		*cur = bs->cur;
+	union xfs_btree_ptr		leftsib;
+	union xfs_btree_ptr		rightsib;
+	int				level;
+	int				error = 0;
+
+	xfs_btree_get_sibling(cur, block, &leftsib, XFS_BB_LEFTSIB);
+	xfs_btree_get_sibling(cur, block, &rightsib, XFS_BB_RIGHTSIB);
+	level = xfs_btree_get_level(block);
+
+	/* Root block should never have siblings. */
+	if (level == cur->bc_nlevels - 1) {
+		xfs_scrub_btree_check_ok(bs->sc, cur, level,
+				!xfs_btree_diff_two_ptrs(cur, &nullptr,
+					&leftsib) &&
+				!xfs_btree_diff_two_ptrs(cur, &nullptr,
+					&rightsib));
+		goto out;
+	}
+
+	/* Does the left sibling match the parent level left block? */
+	error = xfs_scrub_btree_block_check_sibling(bs, level, -1, &leftsib);
+	if (error)
+		return error;
+
+	/* Does the right sibling match the parent level right block? */
+	error = xfs_scrub_btree_block_check_sibling(bs, level, 1, &rightsib);
+	if (error)
+		return error;
+out:
+	return error;
+}
+
+/* Grab and scrub a btree block. */
+STATIC int
+xfs_scrub_btree_block(
+	struct xfs_scrub_btree		*bs,
+	int				level,
+	union xfs_btree_ptr		*pp,
+	struct xfs_btree_block		**pblock,
+	struct xfs_buf			**pbp)
+{
+	int				error;
+
+	error = xfs_btree_lookup_get_block(bs->cur, level, pp, pblock);
+	if (error)
+		return error;
+
+	xfs_btree_get_block(bs->cur, level, pbp);
+	error = xfs_btree_check_block(bs->cur, *pblock, level, *pbp);
+	if (error)
+		return error;
+
+	return xfs_scrub_btree_block_check_siblings(bs, *pblock);
+}
+
 /*
  * Visit all nodes and leaves of a btree.  Check that all pointers and
  * records are in order, that the keys reflect the records, and use a callback
@@ -114,6 +262,92 @@ xfs_scrub_btree(
 	struct xfs_owner_info		*oinfo,
 	void				*private)
 {
-	xfs_scrub_btree_op_ok(sc, cur, 0, false);
-	return -EOPNOTSUPP;
+	struct xfs_scrub_btree		bs = {0};
+	union xfs_btree_ptr		ptr;
+	union xfs_btree_ptr		*pp;
+	struct xfs_btree_block		*block;
+	int				level;
+	struct xfs_buf			*bp;
+	int				i;
+	int				error = 0;
+
+	/* Initialize scrub state */
+	bs.cur = cur;
+	bs.scrub_rec = scrub_fn;
+	bs.oinfo = oinfo;
+	bs.firstrec = true;
+	bs.private = private;
+	bs.sc = sc;
+	for (i = 0; i < XFS_BTREE_MAXLEVELS; i++)
+		bs.firstkey[i] = true;
+	INIT_LIST_HEAD(&bs.to_check);
+
+	/* Don't try to check a tree with a height we can't handle. */
+	if (!xfs_scrub_btree_check_ok(sc, cur, 0, cur->bc_nlevels > 0 &&
+			cur->bc_nlevels <= XFS_BTREE_MAXLEVELS))
+		goto out;
+
+	/* Make sure the root isn't in the superblock. */
+	if (!(cur->bc_flags & XFS_BTREE_ROOT_IN_INODE)) {
+		cur->bc_ops->init_ptr_from_cur(cur, &ptr);
+		error = xfs_scrub_btree_ptr(&bs, cur->bc_nlevels, &ptr);
+		if (!xfs_scrub_btree_op_ok(sc, cur, cur->bc_nlevels - 1, &error))
+			goto out;
+	}
+
+	/* Load the root of the btree. */
+	level = cur->bc_nlevels - 1;
+	cur->bc_ops->init_ptr_from_cur(cur, &ptr);
+	error = xfs_scrub_btree_block(&bs, level, &ptr, &block, &bp);
+	if (!xfs_scrub_btree_op_ok(sc, cur, cur->bc_nlevels - 1, &error))
+		goto out;
+
+	cur->bc_ptrs[level] = 1;
+
+	while (level < cur->bc_nlevels) {
+		block = xfs_btree_get_block(cur, level, &bp);
+
+		if (level == 0) {
+			/* End of leaf, pop back towards the root. */
+			if (cur->bc_ptrs[level] >
+			    be16_to_cpu(block->bb_numrecs)) {
+				if (level < cur->bc_nlevels - 1)
+					cur->bc_ptrs[level + 1]++;
+				level++;
+				continue;
+			}
+
+			if (xfs_scrub_should_terminate(&error))
+				break;
+
+			cur->bc_ptrs[level]++;
+			continue;
+		}
+
+		/* End of node, pop back towards the root. */
+		if (cur->bc_ptrs[level] > be16_to_cpu(block->bb_numrecs)) {
+			if (level < cur->bc_nlevels - 1)
+				cur->bc_ptrs[level + 1]++;
+			level++;
+			continue;
+		}
+
+		/* Drill another level deeper. */
+		pp = xfs_btree_ptr_addr(cur, cur->bc_ptrs[level], block);
+		error = xfs_scrub_btree_ptr(&bs, level, pp);
+		if (error) {
+			error = 0;
+			cur->bc_ptrs[level]++;
+			continue;
+		}
+		level--;
+		error = xfs_scrub_btree_block(&bs, level, pp, &block, &bp);
+		if (!xfs_scrub_btree_op_ok(sc, cur, level, &error))
+			goto out;
+
+		cur->bc_ptrs[level] = 1;
+	}
+
+out:
+	return error;
 }
