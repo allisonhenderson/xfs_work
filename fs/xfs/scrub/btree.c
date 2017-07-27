@@ -370,6 +370,72 @@ out:
 	return error;
 }
 
+struct check_owner {
+	struct list_head	list;
+	xfs_daddr_t		daddr;
+};
+
+/*
+ * Make sure this btree block isn't in the free list and that there's
+ * an rmap record for it.
+ */
+STATIC int
+xfs_scrub_btree_check_block_owner(
+	struct xfs_scrub_btree		*bs,
+	xfs_daddr_t			daddr)
+{
+	struct xfs_scrub_ag		sa = { 0 };
+	struct xfs_scrub_ag		*psa;
+	xfs_agnumber_t			agno;
+	int				error = 0;
+
+	agno = xfs_daddr_to_agno(bs->cur->bc_mp, daddr);
+
+	if (bs->cur->bc_flags & XFS_BTREE_LONG_PTRS) {
+		error = xfs_scrub_ag_init(bs->sc, agno, &sa);
+		if (error)
+			return error;
+		psa = &sa;
+	} else {
+		psa = &bs->sc->sa;
+	}
+
+	if (psa == &sa)
+		xfs_scrub_ag_free(bs->sc, &sa);
+
+	return error;
+}
+
+/* Check the owner of a btree block. */
+STATIC int
+xfs_scrub_btree_check_owner(
+	struct xfs_scrub_btree		*bs,
+	struct xfs_buf			*bp)
+{
+	struct xfs_btree_cur		*cur = bs->cur;
+	struct check_owner		*co;
+
+	if ((cur->bc_flags & XFS_BTREE_ROOT_IN_INODE) && bp == NULL)
+		return 0;
+
+	/*
+	 * We want to cross-reference each btree block with the bnobt
+	 * and the rmapbt.  We cannot cross-reference the bnobt or
+	 * rmapbt while scanning the bnobt or rmapbt, respectively,
+	 * because we cannot alter the cursor and we'd prefer not to
+	 * duplicate cursors.  Therefore, save the buffer daddr for
+	 * later scanning.
+	 */
+	if (cur->bc_btnum == XFS_BTNUM_BNO || cur->bc_btnum == XFS_BTNUM_RMAP) {
+		co = kmem_alloc(sizeof(struct check_owner), KM_SLEEP | KM_NOFS);
+		co->daddr = XFS_BUF_ADDR(bp);
+		list_add_tail(&co->list, &bs->to_check);
+		return 0;
+	}
+
+	return xfs_scrub_btree_check_block_owner(bs, XFS_BUF_ADDR(bp));
+}
+
 /* Grab and scrub a btree block. */
 STATIC int
 xfs_scrub_btree_block(
@@ -387,6 +453,10 @@ xfs_scrub_btree_block(
 
 	xfs_btree_get_block(bs->cur, level, pbp);
 	error = xfs_btree_check_block(bs->cur, *pblock, level, *pbp);
+	if (error)
+		return error;
+
+	error = xfs_scrub_btree_check_owner(bs, *pbp);
 	if (error)
 		return error;
 
@@ -415,6 +485,8 @@ xfs_scrub_btree(
 	struct xfs_btree_block		*block;
 	int				level;
 	struct xfs_buf			*bp;
+	struct check_owner		*co;
+	struct check_owner		*n;
 	int				i;
 	int				error = 0;
 
@@ -512,6 +584,14 @@ xfs_scrub_btree(
 	}
 
 out:
+	/* Process deferred owner checks on btree blocks. */
+	list_for_each_entry_safe(co, n, &bs.to_check, list) {
+		if (!error)
+			error = xfs_scrub_btree_check_block_owner(&bs,
+					co->daddr);
+		list_del(&co->list);
+		kmem_free(co);
+	}
 
 	return error;
 }
