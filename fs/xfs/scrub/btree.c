@@ -99,6 +99,104 @@ xfs_scrub_btree_check_ok(
 	return fs_ok;
 }
 
+/*
+ * Make sure this record is in order and doesn't stray outside of the parent
+ * keys.
+ */
+STATIC int
+xfs_scrub_btree_rec(
+	struct xfs_scrub_btree	*bs)
+{
+	struct xfs_btree_cur	*cur = bs->cur;
+	union xfs_btree_rec	*rec;
+	union xfs_btree_key	key;
+	union xfs_btree_key	hkey;
+	union xfs_btree_key	*keyp;
+	struct xfs_btree_block	*block;
+	struct xfs_btree_block	*keyblock;
+	struct xfs_buf		*bp;
+
+	block = xfs_btree_get_block(cur, 0, &bp);
+	rec = xfs_btree_rec_addr(cur, cur->bc_ptrs[0], block);
+
+	trace_xfs_scrub_btree_rec(bs->sc, cur, 0);
+
+	/* If this isn't the first record, are they in order? */
+	xfs_scrub_btree_check_ok(bs->sc, cur, 0, bs->firstrec ||
+			cur->bc_ops->recs_inorder(cur, &bs->lastrec, rec));
+	bs->firstrec = false;
+	memcpy(&bs->lastrec, rec, cur->bc_ops->rec_len);
+
+	if (cur->bc_nlevels == 1)
+		return 0;
+
+	/* Is this at least as large as the parent low key? */
+	cur->bc_ops->init_key_from_rec(&key, rec);
+	keyblock = xfs_btree_get_block(cur, 1, &bp);
+	keyp = xfs_btree_key_addr(cur, cur->bc_ptrs[1], keyblock);
+	xfs_scrub_btree_check_ok(bs->sc, cur, 1,
+			cur->bc_ops->diff_two_keys(cur, &key, keyp) >= 0);
+
+	if (!(cur->bc_flags & XFS_BTREE_OVERLAPPING))
+		return 0;
+
+	/* Is this no larger than the parent high key? */
+	cur->bc_ops->init_high_key_from_rec(&hkey, rec);
+	keyp = xfs_btree_high_key_addr(cur, cur->bc_ptrs[1], keyblock);
+	xfs_scrub_btree_check_ok(bs->sc, cur, 1,
+			cur->bc_ops->diff_two_keys(cur, keyp, &hkey) >= 0);
+
+	return 0;
+}
+
+/*
+ * Make sure this key is in order and doesn't stray outside of the parent
+ * keys.
+ */
+STATIC int
+xfs_scrub_btree_key(
+	struct xfs_scrub_btree	*bs,
+	int			level)
+{
+	struct xfs_btree_cur	*cur = bs->cur;
+	union xfs_btree_key	*key;
+	union xfs_btree_key	*keyp;
+	struct xfs_btree_block	*block;
+	struct xfs_btree_block	*keyblock;
+	struct xfs_buf		*bp;
+
+	block = xfs_btree_get_block(cur, level, &bp);
+	key = xfs_btree_key_addr(cur, cur->bc_ptrs[level], block);
+
+	trace_xfs_scrub_btree_key(bs->sc, cur, level);
+
+	/* If this isn't the first key, are they in order? */
+	xfs_scrub_btree_check_ok(bs->sc, cur, level, bs->firstkey[level] ||
+			cur->bc_ops->keys_inorder(cur, &bs->lastkey[level], key));
+	bs->firstkey[level] = false;
+	memcpy(&bs->lastkey[level], key, cur->bc_ops->key_len);
+
+	if (level + 1 >= cur->bc_nlevels)
+		return 0;
+
+	/* Is this at least as large as the parent low key? */
+	keyblock = xfs_btree_get_block(cur, level + 1, &bp);
+	keyp = xfs_btree_key_addr(cur, cur->bc_ptrs[level + 1], keyblock);
+	xfs_scrub_btree_check_ok(bs->sc, cur, level,
+			cur->bc_ops->diff_two_keys(cur, key, keyp) >= 0);
+
+	if (!(cur->bc_flags & XFS_BTREE_OVERLAPPING))
+		return 0;
+
+	/* Is this no larger than the parent high key? */
+	key = xfs_btree_high_key_addr(cur, cur->bc_ptrs[level], block);
+	keyp = xfs_btree_high_key_addr(cur, cur->bc_ptrs[level + 1], keyblock);
+	xfs_scrub_btree_check_ok(bs->sc, cur, level,
+			cur->bc_ops->diff_two_keys(cur, keyp, key) >= 0);
+
+	return 0;
+}
+
 /* Check a btree pointer. */
 static int
 xfs_scrub_btree_ptr(
@@ -265,6 +363,7 @@ xfs_scrub_btree(
 	struct xfs_scrub_btree		bs = {0};
 	union xfs_btree_ptr		ptr;
 	union xfs_btree_ptr		*pp;
+	union xfs_btree_rec		*recp;
 	struct xfs_btree_block		*block;
 	int				level;
 	struct xfs_buf			*bp;
@@ -317,6 +416,17 @@ xfs_scrub_btree(
 				continue;
 			}
 
+			/* Records in order for scrub? */
+			error = xfs_scrub_btree_rec(&bs);
+			if (error)
+				goto out;
+
+			/* Call out to the record checker. */
+			recp = xfs_btree_rec_addr(cur, cur->bc_ptrs[0], block);
+			error = bs.scrub_rec(&bs, recp);
+			if (error < 0 ||
+			    error == XFS_BTREE_QUERY_RANGE_ABORT)
+				break;
 			if (xfs_scrub_should_terminate(&error))
 				break;
 
@@ -331,6 +441,11 @@ xfs_scrub_btree(
 			level++;
 			continue;
 		}
+
+		/* Keys in order for scrub? */
+		error = xfs_scrub_btree_key(&bs, level);
+		if (error)
+			goto out;
 
 		/* Drill another level deeper. */
 		pp = xfs_btree_ptr_addr(cur, cur->bc_ptrs[level], block);
