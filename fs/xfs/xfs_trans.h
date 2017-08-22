@@ -26,6 +26,9 @@ struct xfs_cui_log_item;
 struct xfs_cud_log_item;
 struct xfs_bui_log_item;
 struct xfs_bud_log_item;
+struct xfs_attrd_log_item;
+struct xfs_attri_log_item;
+struct xfs_da_args;
 
 typedef struct xfs_log_item {
 	struct list_head		li_ail;		/* AIL pointers */
@@ -223,6 +226,8 @@ void		xfs_trans_dirty_buf(struct xfs_trans *, struct xfs_buf *);
 void		xfs_trans_log_inode(xfs_trans_t *, struct xfs_inode *, uint);
 
 void		xfs_extent_free_init_defer_op(void);
+void            xfs_attr_init_defer_op(void);
+
 struct xfs_efd_log_item	*xfs_trans_get_efd(struct xfs_trans *,
 				  struct xfs_efi_log_item *,
 				  uint);
@@ -230,6 +235,13 @@ int		xfs_trans_free_extent(struct xfs_trans *,
 				      struct xfs_efd_log_item *, xfs_fsblock_t,
 				      xfs_extlen_t, struct xfs_owner_info *,
 				      bool);
+struct xfs_attrd_log_item *
+xfs_trans_get_attrd(struct xfs_trans *tp,
+		    struct xfs_attri_log_item *attrip);
+int xfs_trans_attr(	struct xfs_da_args *args,
+			struct xfs_attrd_log_item *attrdp,
+			uint32_t attr_op_flags);
+
 int		xfs_trans_commit(struct xfs_trans *);
 int		xfs_trans_roll(struct xfs_trans **);
 int		xfs_trans_roll_inode(struct xfs_trans **, struct xfs_inode *);
