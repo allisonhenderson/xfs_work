@@ -530,7 +530,7 @@ xfs_attri_recover(
 		return error;
 
 	error = xfs_attr_args_init(&args, ip, attrip->name,
-					attrp->alfi_attr_flags);
+			attrp->alfi_name_len, attrp->alfi_attr_flags);
 	if (error)
 		return error;
 
