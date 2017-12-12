@@ -94,6 +94,7 @@ enum {
 	N_VERSION,
 	N_FTYPE,
 	N_DELATTR,
+	N_PARENT,
 	N_MAX_OPTS,
 };
 
@@ -541,6 +542,7 @@ static struct opt_params nopts = {
 		[N_VERSION] = "version",
 		[N_FTYPE] = "ftype",
 		[N_DELATTR] = "delattr",
+		[N_PARENT] = "parent",
 	},
 	.subopt_params = {
 		{ .index = N_SIZE,
@@ -569,6 +571,14 @@ static struct opt_params nopts = {
 		  .maxval = 1,
 		  .defaultval = 1,
 		},
+		{ .index = N_PARENT,
+		  .conflicts = { { NULL, LAST_CONFLICT } },
+		  .minval = 0,
+		  .maxval = 1,
+		  .defaultval = 1,
+		},
+
+
 	},
 };
 
@@ -874,7 +884,8 @@ usage( void )
 /* log subvol */	[-l agnum=n,internal,size=num,logdev=xxx,version=n\n\
 			    sunit=value|su=num,sectsize=num,lazy-count=0|1]\n\
 /* label */		[-L label (maximum 12 characters)]\n\
-/* naming */		[-n size=num,version=2|ci,ftype=0|1,delattr=0|1]\n\
+/* naming */		[-n size=num,version=2|ci,ftype=0|1,delattr=0|1,\n\
+			    parent=0|1]]\n\
 /* no-op info only */	[-N]\n\
 /* prototype file */	[-p fname]\n\
 /* quiet */		[-q]\n\
@@ -1590,6 +1601,9 @@ naming_opts_parser(
 	case N_DELATTR:
 		cli->sb_feat.delattr = getnum(value, &nopts, N_DELATTR);
 		break;
+	case N_PARENT:
+		cli->sb_feat.parent_pointers = getnum(value, &nopts, N_PARENT);
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -1999,6 +2013,14 @@ _("reflink not supported without CRC support\n"));
 _("delayed attributes not supported on v4 filesystems\n"));
 		usage();
 		cli->sb_feat.delattr = false;
+	}
+
+	if ((cli->sb_feat.parent_pointers) &&
+	    cli->sb_feat.dir_version == 4) {
+		fprintf(stderr,
+_("parent pointers not supported on v4 filesystems\n"));
+		usage();
+		cli->sb_feat.parent_pointers = false;
 	}
 
 	if ((cli->fsx.fsx_xflags & FS_XFLAG_COWEXTSIZE) &&
@@ -2966,6 +2988,8 @@ sb_set_features(
 		sbp->sb_features_ro_compat |= XFS_SB_FEAT_RO_COMPAT_REFLINK;
 	if (fp->delattr)
 		sbp->sb_features_log_incompat |= XFS_SB_FEAT_INCOMPAT_LOG_DELATTR;
+	if (fp->parent_pointers)
+		sbp->sb_features_ro_compat |= XFS_SB_FEAT_RO_COMPAT_PARENT;
 
 	/*
 	 * Sparse inode chunk support has two main inode alignment requirements.
