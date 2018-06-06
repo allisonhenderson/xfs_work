@@ -188,6 +188,9 @@ int xfs_has_attr(struct xfs_da_args *args);
 int xfs_attr_remove_args(struct xfs_da_args *args);
 int xfs_attr_list(struct xfs_inode *dp, char *buffer, int bufsize,
 		  int flags, struct attrlist_cursor_kern *cursor);
+int xfs_attr_list_context_init(struct xfs_inode *dp, char *buffer, int bufsize,
+		int flags, struct attrlist_cursor_kern *cursor,
+		struct xfs_attr_list_context *context);
 int xfs_attr_args_init(struct xfs_da_args *args, struct xfs_inode *dp,
 		       const unsigned char *name, size_t namelen, int flags);
 int xfs_attr_calc_size(struct xfs_da_args *args, int *local);
