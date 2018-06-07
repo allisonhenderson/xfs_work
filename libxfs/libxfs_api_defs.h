@@ -146,6 +146,7 @@
 #define xfs_init_local_fork		libxfs_init_local_fork
 #define xfs_dir2_namecheck		libxfs_dir2_namecheck
 #define xfs_attr_namecheck		libxfs_attr_namecheck
+#define xfs_parent_add			libxfs_parent_add
 
 #define LIBXFS_ATTR_ROOT		ATTR_ROOT
 #define LIBXFS_ATTR_SECURE		ATTR_SECURE
