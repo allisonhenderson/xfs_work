@@ -17,6 +17,7 @@
 #include "dinode.h"
 #include "progress.h"
 #include "versions.h"
+#include "xfs_parent.h"
 
 static struct cred		zerocr;
 static struct fsxattr 		zerofsx;
@@ -934,17 +935,18 @@ mk_root_dir(xfs_mount_t *mp)
 static xfs_ino_t
 mk_orphanage(xfs_mount_t *mp)
 {
-	xfs_ino_t	ino;
-	xfs_trans_t	*tp;
-	xfs_inode_t	*ip;
-	xfs_inode_t	*pip;
-	ino_tree_node_t	*irec;
-	int		ino_offset = 0;
-	int		i;
-	int		error;
-	const int	mode = 0755;
-	int		nres;
-	struct xfs_name	xname;
+	xfs_ino_t		ino;
+	struct xfs_trans	*tp;
+	struct xfs_inode	*ip;
+	struct xfs_inode	*pip;
+	struct ino_tree_node	*irec;
+	int			ino_offset = 0;
+	int			i;
+	int			error;
+	const int		mode = 0755;
+	int			nres;
+	struct xfs_name		xname;
+	xfs_dir2_dataptr_t	offset;
 
 	/*
 	 * check for an existing lost+found first, if it exists, return
@@ -1029,7 +1031,7 @@ mk_orphanage(xfs_mount_t *mp)
 	/*
 	 * create the actual entry
 	 */
-	error = -libxfs_dir_createname(tp, pip, &xname, ip->i_ino, nres, NULL);
+	error = -libxfs_dir_createname(tp, pip, &xname, ip->i_ino, nres, &offset);
 	if (error)
 		do_error(
 		_("can't make %s, createname error %d\n"),
@@ -1049,6 +1051,16 @@ mk_orphanage(xfs_mount_t *mp)
 	libxfs_trans_log_inode(tp, pip, XFS_ILOG_CORE);
 	libxfs_dir_init(tp, ip, pip);
 	libxfs_trans_log_inode(tp, ip, XFS_ILOG_CORE);
+
+	if (xfs_sb_version_hasparent(&mp->m_sb)) {
+		error = -libxfs_parent_add(pip, ip, &xname, offset);
+		if (error)
+			do_error(_("Error creating parent pointer: %d\n"),
+				 error);
+		libxfs_trans_log_inode(tp, pip, XFS_ILOG_CORE);
+		libxfs_trans_log_inode(tp, ip, XFS_ILOG_CORE);
+        }
+
 	error = -libxfs_trans_commit(tp);
 	if (error) {
 		do_error(_("%s directory creation failed -- bmapf error %d\n"),
