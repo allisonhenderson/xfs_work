@@ -124,10 +124,12 @@ set_da_freemap(xfs_mount_t *mp, da_freemap_t *map, int start, int stop)
 
 static int
 attr_namecheck(
-	uint8_t	*name,
-	int	length)
+	struct xfs_mount	*mp,
+	uint8_t			*name,
+	int			length,
+	int			flags)
 {
-	return namecheck((char *)name, length, false);
+	return attribute_namecheck(mp, (char *)name, length, flags);
 }
 
 /*
@@ -300,11 +302,14 @@ process_shortform_attr(
 			}
 		}
 
-		/* namecheck checks for null chars in attr names. */
-		if (attr_namecheck(currententry->nameval,
-						currententry->namelen)) {
+		/* namecheck checks for null chars in attr names,
+		 * or verifies parent pointer record in the case of a parent
+		 * pointer attribute.
+		 */
+		if (attr_namecheck(mp, currententry->nameval,
+				   currententry->namelen, currententry->flags)) {
 			do_warn(
-	_("entry contains illegal character in shortform attribute name\n"));
+	_("entry contains illegal shortform attribute name\n"));
 			junkit = 1;
 		}
 
@@ -464,8 +469,7 @@ process_leaf_attr_local(
 	xfs_attr_leaf_name_local_t *local;
 
 	local = xfs_attr3_leaf_name_local(leaf, i);
-	if (local->namelen == 0 || attr_namecheck(local->nameval,
-							local->namelen)) {
+	if (attr_namecheck(mp, local->nameval, local->namelen, entry->flags)) {
 		do_warn(
 	_("attribute entry %d in attr block %u, inode %" PRIu64 " has bad name (namelen = %d)\n"),
 			i, da_bno, ino, local->namelen);
@@ -519,8 +523,8 @@ process_leaf_attr_remote(
 
 	remotep = xfs_attr3_leaf_name_remote(leaf, i);
 
-	if (remotep->namelen == 0 || attr_namecheck(remotep->name,
-						remotep->namelen) ||
+	if (attr_namecheck(mp, remotep->name,
+				remotep->namelen, entry->flags) ||
 			be32_to_cpu(entry->hashval) !=
 				libxfs_da_hashname((unsigned char *)&remotep->name[0],
 						remotep->namelen) ||

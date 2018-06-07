@@ -13,6 +13,49 @@
 #include "da_util.h"
 
 /*
+ * Verify parent pointer attribute is valid.
+ * Return 0 on success or 1 on failure
+ */
+int
+xfs_verify_pptr(struct xfs_mount *mp, struct xfs_parent_name_rec *rec)
+{
+	xfs_ino_t p_ino = (xfs_ino_t)be64_to_cpu(rec->p_ino);
+	xfs_dir2_dataptr_t p_diroffset =
+			(xfs_dir2_dataptr_t)be32_to_cpu(rec->p_diroffset);
+
+	if (!xfs_verify_ino(mp, p_ino))
+		return 1;
+
+	if (p_diroffset > XFS_DIR2_MAX_DATAPTR)
+		return 1;
+
+	return 0;
+}
+
+/*
+ * Check if an attribute name is valid
+ * Returns 0 on success and 1 on failure
+ */
+int
+attribute_namecheck(struct xfs_mount *mp, char *name, int length, int flags)
+{
+	if (flags & XFS_ATTR_PARENT) {
+		if (length != sizeof(struct xfs_parent_name_rec))
+			return 1;
+		return xfs_verify_pptr(mp, (struct xfs_parent_name_rec *)name);
+	}
+
+	if (length == 0)
+		return 1;
+
+	/*
+	 * namecheck checks for / and null terminated for file names.
+	 * attributes names currently follow the same rules.
+	 */
+	return namecheck(name, length, false);
+}
+
+/*
  * Takes a name and length (name need not be null-terminated) and whether
  * we are checking a dir (as opposed to an attr).
  * Returns 1 if the name contains a NUL or if a directory entry contains a '/'.

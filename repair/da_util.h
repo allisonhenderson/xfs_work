@@ -25,6 +25,18 @@ typedef struct da_bt_cursor {
 } da_bt_cursor_t;
 
 int
+xfs_verify_pptr(
+	struct xfs_mount *mp,
+	struct xfs_parent_name_rec *rec);
+
+int
+attribute_namecheck(
+	struct xfs_mount	*mp,
+	char			*name,
+	int			length,
+	int			flags);
+
+int
 namecheck(
 	char		*name,
 	int		length,
