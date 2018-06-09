@@ -143,12 +143,12 @@ export DF_PROG="$(type -P df)"
 [ "$DF_PROG" = "" ] && _fatal "df not found"
 [ "$HOSTOS" = "Linux" ] && export DF_PROG="$DF_PROG -T -P"
 
-export XFS_IO_PROG="$(type -P xfs_io)"
+export XFS_IO_PROG="$(type -P /home/achender/xfsprogs-dev/io/xfs_io)"
 [ "$XFS_IO_PROG" = "" ] && _fatal "xfs_io not found"
 
-export XFS_LOGPRINT_PROG="$(type -P xfs_logprint)"
-export XFS_REPAIR_PROG="$(type -P xfs_repair)"
-export XFS_DB_PROG="$(type -P xfs_db)"
+export XFS_LOGPRINT_PROG="$(type -P /home/achender/xfsprogs-dev/logprint/xfs_logprint)"
+export XFS_REPAIR_PROG="$(type -P  /home/achender/xfsprogs-dev/repair/xfs_repair)"
+export XFS_DB_PROG="$(type -P /home/achender/xfsprogs-dev/db/xfs_db)"
 export XFS_GROWFS_PROG=$(type -P xfs_growfs)
 export XFS_SPACEMAN_PROG="$(type -P xfs_spaceman)"
 export XFS_SCRUB_PROG="$(type -P xfs_scrub)"
@@ -226,7 +226,7 @@ export UDEV_SETTLE_PROG
 
 case "$HOSTOS" in
     Linux)
-	export MKFS_XFS_PROG=$(type -P mkfs.xfs)
+	export MKFS_XFS_PROG=$(type -P /home/achender/xfsprogs-dev/mkfs/mkfs.xfs)
 	export MKFS_EXT4_PROG=$(type -P mkfs.ext4)
 	export MKFS_UDF_PROG=$(type -P mkudffs)
 	export MKFS_BTRFS_PROG=$(set_mkfs_prog_path_with_opts btrfs)
