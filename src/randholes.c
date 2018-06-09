@@ -20,6 +20,10 @@
 
 #include "global.h"
 
+#include <xfs/xfs_fs.h>
+#include <linux/fs.h>
+
+
 #define	power_of_2(x)	((x) && !((x) & ((x) - 1)))
 #define	DEFAULT_FILESIZE	((uint64_t) (256 * 1024 * 1024))
 #define	DEFAULT_BLOCKSIZE	512

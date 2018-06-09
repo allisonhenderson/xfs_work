@@ -37,6 +37,9 @@
 #include <sys/fs/xfs_itable.h>
 #endif
 
+#include <xfs/xfs_fs.h>
+#include <linux/fs.h>
+
 
 #include "doio.h"
 #include "str_to_bytes.h"

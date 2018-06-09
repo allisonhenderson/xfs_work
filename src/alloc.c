@@ -17,6 +17,9 @@
  */
  
 #include "global.h"
+#include <xfs/xfs_fs.h>
+#include <linux/fs.h>
+
 
 /*
  * Block I/O parameterization.  A basic block (BB) is the lowest size of
