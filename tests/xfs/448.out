@@ -1,0 +1,1096 @@
+QA output created by 448
+Silence is golden.
+Wrote 2048.00Kb (value 0x2c)
+*** create FS
+*** check FS
+*** mount FS
+
+Create parent pointer test
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+
+Move parent pointer test
+*** testfolder2 OK
+*** testfolder2/file1 OK
+*** testfolder2/file1 OK
+*** Verified parent pointer: inode:33613312, name:file1, namelen:5
+*** Parent pointer OK for child testfolder2/file1 inode:16777345
+
+Hard link parent pointer test
+*** testfolder1 OK
+*** testfolder1/file1_link OK
+*** testfolder1/file1_link OK
+*** Verified parent pointer: inode:16777344, name:file1_link, namelen:10
+*** Parent pointer OK for child testfolder1/file1_link inode:16777345
+*** testfolder1 OK
+*** testfolder2/file1 OK
+*** testfolder1/file1_link OK
+*** Verified parent pointer: inode:16777344, name:file1_link, namelen:10
+*** Parent pointer OK for child testfolder2/file1 inode:16777345
+*** testfolder2 OK
+*** testfolder1/file1_link OK
+*** testfolder2/file1 OK
+*** Verified parent pointer: inode:33613312, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link inode:16777345
+*** testfolder2 OK
+*** testfolder2/file1 OK
+*** testfolder2/file1 OK
+*** Verified parent pointer: inode:33613312, name:file1, namelen:5
+*** Parent pointer OK for child testfolder2/file1 inode:16777345
+
+Remove hard link parent pointer test
+*** testfolder1 OK
+*** testfolder1/file1_link OK
+*** testfolder1/file1_link OK
+*** Verified parent pointer: inode:16777344, name:file1_link, namelen:10
+*** Parent pointer OK for child testfolder1/file1_link inode:16777345
+*** testfolder1/file1_link OK
+
+Rename parent pointer test
+*** testfolder1 OK
+*** testfolder1/file2 OK
+*** testfolder1/file2 OK
+*** Verified parent pointer: inode:16777344, name:file2, namelen:5
+*** Parent pointer OK for child testfolder1/file2 inode:16777345
+*** testfolder1/file2 OK
+
+Over write parent pointer test
+*** testfolder2 OK
+*** testfolder2/file3 OK
+*** testfolder2/file3 OK
+*** Verified parent pointer: inode:33613312, name:file3, namelen:5
+*** Parent pointer OK for child testfolder2/file3 inode:33613314
+*** testfolder1 OK
+*** testfolder1/file2 OK
+*** testfolder1/file2 OK
+*** Verified parent pointer: inode:16777344, name:file2, namelen:5
+*** Parent pointer OK for child testfolder1/file2 inode:33613314
+
+Multi link parent pointer test
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.0 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.0, namelen:12
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.0 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.0 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.1 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.1, namelen:12
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.1 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.2 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.2, namelen:12
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.2 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.2 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.3 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.3, namelen:12
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.3 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.3 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.4 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.4, namelen:12
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.4 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.4 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.5 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.5, namelen:12
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.5 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.5 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.6 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.6, namelen:12
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.6 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.6 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.7 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.7, namelen:12
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.7 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.7 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.8 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.8, namelen:12
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.8 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.8 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.9 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.9, namelen:12
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.9 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.9 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.10 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.10, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.10 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.10 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.11 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.11, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.11 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.11 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.12 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.12, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.12 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.12 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.13 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.13, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.13 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.13 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.14 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.14, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.14 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.14 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.15 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.15, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.15 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.15 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.16 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.16, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.16 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.16 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.17 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.17, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.17 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.17 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.18 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.18, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.18 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.18 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.19 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.19, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.19 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.19 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.20 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.20, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.20 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.20 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.21 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.21, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.21 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.21 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.22 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.22, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.22 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.22 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.23 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.23, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.23 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.23 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.24 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.24, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.24 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.24 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.25 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.25, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.25 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.25 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.26 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.26, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.26 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.26 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.27 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.27, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.27 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.27 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.28 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.28, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.28 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.28 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.29 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.29, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.29 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.29 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.30 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.30, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.30 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.30 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.31 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.31, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.31 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.31 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.32 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.32, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.32 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.32 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.33 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.33, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.33 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.33 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.34 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.34, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.34 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.34 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.35 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.35, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.35 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.35 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.36 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.36, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.36 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.36 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.37 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.37, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.37 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.37 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.38 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.38, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.38 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.38 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.39 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.39, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.39 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.39 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.40 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.40, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.40 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.40 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.41 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.41, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.41 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.41 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.42 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.42, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.42 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.42 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.43 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.43, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.43 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.43 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.44 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.44, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.44 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.44 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.45 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.45, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.45 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.45 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.46 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.46, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.46 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.46 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.47 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.47, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.47 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.47 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.48 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.48, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.48 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.48 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.49 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.49, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.49 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.49 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.50 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.50, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.50 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.50 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.51 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.51, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.51 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.51 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.52 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.52, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.52 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.52 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.53 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.53, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.53 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.53 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.54 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.54, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.54 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.54 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.55 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.55, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.55 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.55 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.56 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.56, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.56 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.56 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.57 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.57, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.57 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.57 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.58 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.58, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.58 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.58 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.59 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.59, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.59 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.59 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.60 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.60, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.60 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.60 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.61 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.61, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.61 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.61 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.62 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.62, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.62 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.62 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.63 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.63, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.63 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.63 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.64 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.64, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.64 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.64 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.65 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.65, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.65 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.65 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.66 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.66, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.66 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.66 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.67 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.67, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.67 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.67 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.68 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.68, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.68 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.68 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.69 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.69, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.69 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.69 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.70 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.70, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.70 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.70 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.71 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.71, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.71 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.71 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.72 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.72, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.72 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.72 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.73 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.73, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.73 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.73 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.74 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.74, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.74 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.74 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.75 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.75, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.75 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.75 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.76 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.76, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.76 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.76 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.77 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.77, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.77 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.77 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.78 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.78, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.78 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.78 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.79 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.79, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.79 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.79 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.80 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.80, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.80 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.80 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.81 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.81, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.81 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.81 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.82 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.82, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.82 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.82 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.83 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.83, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.83 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.83 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.84 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.84, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.84 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.84 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.85 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.85, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.85 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.85 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.86 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.86, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.86 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.86 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.87 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.87, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.87 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.87 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.88 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.88, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.88 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.88 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.89 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.89, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.89 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.89 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.90 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.90, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.90 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.90 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.91 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.91, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.91 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.91 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.92 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.92, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.92 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.92 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.93 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.93, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.93 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.93 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.94 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.94, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.94 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.94 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.95 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.95, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.95 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.95 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.96 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.96, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.96 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.96 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.97 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.97, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.97 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.97 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.98 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.98, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.98 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.98 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1 OK
+*** testfolder1/file1_link.99 OK
+*** Verified parent pointer: inode:16777344, name:file1_link.99, namelen:13
+*** Parent pointer OK for child testfolder1/file1 inode:16777345
+*** testfolder1 OK
+*** testfolder1/file1_link.99 OK
+*** testfolder1/file1 OK
+*** Verified parent pointer: inode:16777344, name:file1, namelen:5
+*** Parent pointer OK for child testfolder1/file1_link.99 inode:16777345
+Multi unlink parent pointer test
+
+Error inject test
+Create files
+*** testfolder1 OK
+*** testfolder1/file4 OK
+*** testfolder1/file4 OK
+*** Verified parent pointer: inode:16777344, name:file4, namelen:5
+*** Parent pointer OK for child testfolder1/file4 inode:16777346
+Inject error
+Move files
+mv: cannot move '/mnt/scratch/testfolder1/file4' to '/mnt/scratch/testfolder2/file5': Input/output error
+FS should be shut down, touch will fail
+touch: cannot touch 'SCRATCH_MNT/testfolder2/file5': Input/output error
+Remount to replay log
+FS should be online, touch should succeed
+Check files again
+*** testfolder2 OK
+*** testfolder2/file5 OK
+*** testfolder2/file5 OK
+*** Verified parent pointer: inode:33613312, name:file5, namelen:5
+*** Parent pointer OK for child testfolder2/file5 inode:16777346
+*** unmount FS
+*** done

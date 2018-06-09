@@ -1,0 +1,423 @@
+#! /bin/bash
+# Test 448
+#
+# parent pointer tests
+#
+#-----------------------------------------------------------------------
+# Copyright (c) 2018 Oracle, Inc.  All Rights Reserved.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it would be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write the Free Software Foundation,
+# Inc.,  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+#-----------------------------------------------------------------------
+#
+
+seq=`basename $0`
+seqres=$RESULT_DIR/$seq
+echo "QA output created by $seq"
+
+here=`pwd`
+tmp=/tmp/$$
+seqfull="$seqres.full"
+tatus=1	# failure is the default!
+trap "_cleanup; exit \$status" 0 1 2 3 15
+
+_cleanup()
+{
+	cd /
+	rm -f $tmp.*
+}
+
+filter_dbval()
+{
+	awk '{ print $4 }'
+}
+
+_full()
+{
+    echo ""            >>$seqfull
+    echo "*** $* ***"  >>$seqfull
+    echo ""            >>$seqfull
+}
+
+# get standard environment, filters and checks
+. ./common/rc
+. ./common/filter
+. ./common/reflink
+. ./common/inject
+
+# remove previous $seqres.full before test
+rm -f $seqres.full
+
+# Modify as appropriate
+_supported_os Linux
+_supported_fs xfs
+_require_scratch
+_require_xfs_io_error_injection "delayed_attr"
+
+echo "Silence is golden."
+
+# real QA test starts here
+protofile=$tmp.proto
+tempfile=$tmp.file
+
+echo fish >$tempfile
+$here/src/devzero -b 2048 -n 2 -c -v 44 $tempfile.2
+
+cat >$protofile <<EOF
+DUMMY1
+0 0
+: root directory
+d--777 3 1
+: a directory
+testfolder1 d--755 3 1
+file1 ---755 3 1 /dev/null
+$
+: back in the root
+testfolder2 d--755 3 1
+file2 ---755 3 1 /dev/null
+: done
+$
+EOF
+
+if [ $? -ne 0 ]
+then
+    _fail "failed to create test protofile"
+fi
+
+#
+# parse_parent_pointer PARENT_POINTER_LIST PARENT_INODE PARENT_POINTER_NAME
+#
+# Given a list of parent pointers, find the record that matches
+# the given inode and filename
+#
+# outputs:
+# PPINO		: Parent pointer inode
+# PPGEN		: Parent pointer generation
+# PPNAME	: Parent pointer name
+# PPNAME_LEN	: Parent pointer name length
+#
+parse_parent_pointer()
+{
+	PARENTS=$1
+	PINO=$2
+	PARENT_POINTER_NAME=$3
+
+	PLEN=${#PARENTS[@]}
+	FOUND=0
+
+	# Find the entry that has the same inode as the parent
+	# and parse out the entry info
+	for (( i=0; i<${PLEN}; i++ )); do
+
+		#advance to the parent entry matching the parent inode
+		if ! echo ${PARENTS[$i]} | grep -q "p_ino    = $PINO" ; then
+			continue
+		fi
+
+		PPINO="$(echo ${PARENTS[$i]} | awk '{print $NF}')"
+
+		((i++))
+		PPGEN="$(echo ${PARENTS[$i]} | awk '{print $NF}')"
+
+		((i++))
+		PPNAME_LEN="$(echo ${PARENTS[$i]} | awk '{print $NF}')"
+
+		((i++))
+		PPNAME="$(echo ${PARENTS[$i]} | awk '{print $NF}' | cut -d '"' -f2 )"
+
+		if [ "$PPNAME" != "$PARENT_POINTER_NAME" ]; then
+			continue
+		fi
+
+		break
+	done
+
+	# If exhausted the list, we didnt find anything
+	if [ $i -eq $PLEN ]; then
+		return 0
+	fi
+
+	# Verify the parent pointer name length is correct
+	if [ $PPNAME_LEN -ne ${#PARENT_POINTER_NAME} ]
+	then
+		_fail "Bad parent pointer reclen for $CHILD_PATH"
+	fi
+
+	#return sucess
+	return 1
+
+}
+
+#
+# verify_parent PARENT_PATH PARENT_POINTER_NAME CHILD_PATH
+#
+# Verify that the given child path lists the given parent as a parent pointer
+# and that the parent pointer name matches the given name
+#
+# Examples:
+# 
+# #simple example
+# mkdir testfolder1
+# touch testfolder1/file1
+# verify_parent testfolder1 file1 testfolder1/file1
+#
+# #hardlink example
+# mkdir testfolder1
+# mkdir testfolder2
+# touch testfolder1/file1
+# ln testfolder1/file1 testfolder2/file1_ln
+# verify_parent testfolder2 file1_ln testfolder1/file1
+#
+verify_parent()
+{
+
+	PARENT_PATH=$1
+	PARENT_POINTER_NAME=$2
+	CHILD_PATH=$3
+
+	CHILD_NAME=$(basename "$CHILD_PATH")
+	PPINO=0
+	PPGEN=0
+	PPNAME_LEN=0
+	PPNAME=""
+	IFS=$'\n'
+
+	# Verify parent exists
+	if [ ! -d $SCRATCH_MNT/$PARENT_PATH ]; then
+		_fail "$SCRATCH_MNT/$PARENT_PATH not found"
+	else
+		echo "*** $PARENT_PATH OK"
+	fi
+
+	# Verify child exists
+	if [ ! -f $SCRATCH_MNT/$CHILD_PATH ]; then
+		_fail "$SCRATCH_MNT/$CHILD_PATH not found"
+	else
+		echo "*** $CHILD_PATH OK"
+	fi
+
+	# Verify the parent pointer name exists as a child of the parent
+	PARENT_PPATH="$PARENT_PATH/$PARENT_POINTER_NAME"
+
+	if [ ! -f $SCRATCH_MNT/$PARENT_PPATH ]; then
+		_fail "$SCRATCH_MNT/$PARENT_PPATH not found"
+	else
+		echo "*** $PARENT_PPATH OK"
+	fi
+
+	# Get the inodes of both parent and child
+	PINO="$(stat -c '%i' $SCRATCH_MNT/$PARENT_PATH)"
+	CINO="$(stat -c '%i' $SCRATCH_MNT/$CHILD_PATH)"
+
+	# Get all the parent pointers of the child
+	PARENTS=($($XFS_IO_PROG -x -c parent $SCRATCH_MNT/$CHILD_PATH))
+	if [[ $? != 0 ]]; then
+		 _fail "No parent pointers found for $CHILD_PATH"
+	fi
+
+	parse_parent_pointer $PARENTS $PINO $PARENT_POINTER_NAME
+	FOUND=$?
+
+	# If we didnt find one, bail out
+	if [ $FOUND -eq 0 ]; then
+		_fail "No parent pointer record found for $PARENT_PATH in $CHILD_PATH"
+	fi
+
+	# Verify the inode generated by the parent pointer name is
+	# the same as the child inode
+	PPPINO="$(stat -c '%i' $SCRATCH_MNT/$PARENT_PPATH)"
+	if [ $CINO -ne $PPPINO ]
+	then
+		_fail "Bad parent pointer name value for $CHILD_PATH."\
+				"$SCRATCH_MNT/$PARENT_PPATH belongs to inode $PPPINO, but should be $CINO"
+	fi
+
+	echo "*** Verified parent pointer:"\
+			"inode:$PPINO, name:$PPNAME, namelen:$PPNAME_LEN"
+	echo "*** Parent pointer OK for child $CHILD_PATH inode:$CINO"
+}
+
+#
+# verify_parent PARENT_PATH PARENT_POINTER_NAME CHILD_PATH
+#
+# Verify that the given child path contains no parent pointer entry
+# for the given parent path and parnet pointer name
+#
+verify_no_parent()
+{
+
+	PARENT_PATH=$1
+	PARENT_PNAME=$2
+	CHILD_PATH=$3
+	CHILD_NAME=$(basename "$CHILD_PATH")
+	PPINO=0
+	PPGEN=0
+	PPNAME_LEN=0
+	PPNAME=""
+	IFS=$'\n'
+
+	# Check if parent even exists
+	if [ ! -d $SCRATCH_MNT/$PARENT_PATH ]; then
+		return 0
+	fi
+
+
+	# Verify child exists
+	if [ ! -f $SCRATCH_MNT/$CHILD_PATH ]; then
+		_fail "$SCRATCH_MNT/$CHILD_PATH not found"
+	else
+		echo "*** $CHILD_PATH OK"
+	fi
+
+	# Get parent inode
+	PINO="$(stat -c '%i' $SCRATCH_MNT/$PARENT_PATH)"
+
+	# Get all the parent pointers of the child
+	PARENTS=($($XFS_IO_PROG -x -c parent $SCRATCH_MNT/$CHILD_PATH))
+	if [[ $? != 0 ]]; then
+		return 0
+	fi
+
+	parse_parent_pointer $PARENTS $PINO $PARENT_PNAME
+	FOUND=$?
+
+	# If we didnt find one, return sucess
+	if [ $FOUND -eq 0 ]; then
+		return 0
+	fi
+
+	_fail "Parent pointer entry found where none should:"\
+			"inode:$PPINO, gen:$PPGEN,"
+			"name:$PPNAME, namelen:$PPNAME_LEN"
+}
+
+verify_fs()
+{
+	echo "*** create FS"
+
+	rm -f $seqfull
+	_scratch_unmount >/dev/null 2>&1
+
+	_scratch_mkfs_xfs -f -n parent=1 -p $protofile >>$seqfull 2>&1 \
+		|| _fail "mkfs failed"
+	echo "*** check FS"
+	_check_scratch_fs
+
+	echo "*** mount FS"
+	_full " mount"
+	_scratch_mount >>$seqfull 2>&1 \
+		|| _fail "mount failed"
+
+	TESTFOLDER1="testfolder1"
+	TESTFOLDER2="testfolder2"
+	FILE1="file1"
+	FILE2="file2"
+	FILE3="file3"
+	FILE4="file4"
+	FILE5="file5"
+	FILE1_LN="file1_link"
+
+	echo ""
+	echo "Create parent pointer test"
+	verify_parent "$TESTFOLDER1" "$FILE1" "$TESTFOLDER1/$FILE1"
+
+	echo ""
+	echo "Move parent pointer test"
+	mv $SCRATCH_MNT/$TESTFOLDER1/$FILE1 $SCRATCH_MNT/$TESTFOLDER2/$FILE1
+	verify_parent "$TESTFOLDER2" "$FILE1" "$TESTFOLDER2/$FILE1"
+
+	echo ""
+	echo "Hard link parent pointer test"
+	ln $SCRATCH_MNT/$TESTFOLDER2/$FILE1 $SCRATCH_MNT/$TESTFOLDER1/$FILE1_LN
+	verify_parent "$TESTFOLDER1" "$FILE1_LN"  "$TESTFOLDER1/$FILE1_LN"
+	verify_parent "$TESTFOLDER1" "$FILE1_LN"  "$TESTFOLDER2/$FILE1"
+	verify_parent "$TESTFOLDER2" "$FILE1"     "$TESTFOLDER1/$FILE1_LN"
+	verify_parent "$TESTFOLDER2" "$FILE1"     "$TESTFOLDER2/$FILE1"
+
+	echo ""
+	echo "Remove hard link parent pointer test"
+	rm $SCRATCH_MNT/$TESTFOLDER2/$FILE1
+	verify_parent    "$TESTFOLDER1" "$FILE1_LN" "$TESTFOLDER1/$FILE1_LN"
+	verify_no_parent "$TESTFOLDER2" "$FILE1"    "$TESTFOLDER1/$FILE1_LN"
+
+	echo ""
+	echo "Rename parent pointer test"
+	mv $SCRATCH_MNT/$TESTFOLDER1/$FILE1_LN $SCRATCH_MNT/$TESTFOLDER1/$FILE2
+	verify_parent    "$TESTFOLDER1" "$FILE2"    "$TESTFOLDER1/$FILE2"
+	verify_no_parent "$TESTFOLDER1" "$FILE1_LN" "$TESTFOLDER1/$FILE2"
+
+	echo ""
+	echo "Over write parent pointer test"
+	touch $SCRATCH_MNT/$TESTFOLDER2/$FILE3
+	verify_parent    "$TESTFOLDER2" "$FILE3"    "$TESTFOLDER2/$FILE3"
+	mv -f $SCRATCH_MNT/$TESTFOLDER2/$FILE3 $SCRATCH_MNT/$TESTFOLDER1/$FILE2
+	verify_parent    "$TESTFOLDER1" "$FILE2"    "$TESTFOLDER1/$FILE2"
+
+
+	echo ""
+	echo "Multi link parent pointer test"
+	NLINKS=100
+	touch $SCRATCH_MNT/$TESTFOLDER1/$FILE1
+	for (( j=0; j<$NLINKS; j++ )); do
+		ln $SCRATCH_MNT/$TESTFOLDER1/$FILE1 $SCRATCH_MNT/$TESTFOLDER1/$FILE1_LN.$j
+		verify_parent    "$TESTFOLDER1" "$FILE1_LN.$j"    "$TESTFOLDER1/$FILE1"
+		verify_parent    "$TESTFOLDER1" "$FILE1"          "$TESTFOLDER1/$FILE1_LN.$j"
+	done
+	echo "Multi unlink parent pointer test"
+	for (( j=$NLINKS-1; j<=0; j-- )); do
+		rm $SCRATCH_MNT/$TESTFOLDER1/$FILE1_LN.$j
+		verify_no_parent "$TESTFOLDER1" "$FILE1_LN.$j" "$TESTFOLDER1/$FILE1"
+	done
+
+
+	echo ""
+	echo "Error inject test"
+
+	echo "Create files"
+	touch $SCRATCH_MNT/$TESTFOLDER1/$FILE4
+	verify_parent    "$TESTFOLDER1" "$FILE4" "$TESTFOLDER1/$FILE4"
+
+	echo "Inject error"
+	_scratch_inject_error "delayed_attr"
+
+	echo "Move files"
+	mv $SCRATCH_MNT/$TESTFOLDER1/$FILE4 $SCRATCH_MNT/$TESTFOLDER2/$FILE5
+
+	echo "FS should be shut down, touch will fail"
+	touch $SCRATCH_MNT/$TESTFOLDER2/$FILE5 2>&1 | _filter_scratch
+
+	echo "Remount to replay log"
+	_scratch_inject_logprint >> $seqres.full
+
+	echo "FS should be online, touch should succeed"
+	touch $SCRATCH_MNT/$TESTFOLDER2/$FILE5
+
+	echo "Check files again"
+	verify_parent    "$TESTFOLDER2" "$FILE5" "$TESTFOLDER2/$FILE5"
+
+	echo "*** unmount FS"
+	_full "umount"
+	_scratch_unmount >>$seqfull 2>&1 \
+		|| _fail "umount failed"
+
+}
+
+verify_fs
+
+echo "*** done"
+rm $seqfull
+status=0
+
+# success, all done
+status=0
+exit
