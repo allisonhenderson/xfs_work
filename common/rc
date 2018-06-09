@@ -178,7 +178,7 @@ fi
 
 _mount()
 {
-    $MOUNT_PROG `_mount_ops_filter $*`
+    eval $MOUNT_PROG `_mount_ops_filter $*`
 }
 
 # Call _mount to do mount operation but also save mountpoint to
