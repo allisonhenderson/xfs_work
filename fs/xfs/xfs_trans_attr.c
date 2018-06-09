@@ -35,6 +35,8 @@
 #include "xfs_inode.h"
 #include "xfs_icache.h"
 #include "xfs_quota.h"
+#include "xfs_errortag.h"
+#include "xfs_error.h"
 
 /*
  * This routine is called to allocate an "attr free done"
@@ -77,6 +79,11 @@ xfs_trans_attr(
 	if (error)
 		return error;
 
+	if (XFS_TEST_ERROR(false, args->dp->i_mount, XFS_ERRTAG_DELAYED_ATTR)) {
+		error = -EIO;
+		goto out;
+	}
+
 	switch (op_flags) {
 		case XFS_ATTR_OP_FLAGS_SET:
 			args->op_flags |= XFS_DA_OP_ADDNAME;
@@ -91,6 +98,7 @@ xfs_trans_attr(
 			error = -EFSCORRUPTED;
 	}
 
+out:
 	/*
 	 * Mark the transaction dirty, even on error. This ensures the
 	 * transaction is aborted, which:
