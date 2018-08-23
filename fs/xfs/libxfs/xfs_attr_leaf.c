@@ -624,6 +624,40 @@ xfs_attr_fork_remove(
 }
 
 /*
+ * Return successful if attr is found, or ENOATTR if not
+ */
+int
+xfs_shortform_has_attr(xfs_da_args_t *args)
+{
+	xfs_attr_shortform_t *sf;
+	xfs_attr_sf_entry_t *sfe;
+	int base, size = 0, end, i;
+	xfs_mount_t *mp;
+	xfs_inode_t *dp;
+
+	dp = args->dp;
+	mp = dp->i_mount;
+	base = sizeof(xfs_attr_sf_hdr_t);
+	sf = (xfs_attr_shortform_t *)dp->i_afp->if_u1.if_data;
+	sfe = &sf->list[0];
+	end = sf->hdr.count;
+	for (i = 0; i < end; sfe = XFS_ATTR_SF_NEXTENTRY(sfe),
+			base += size, i++) {
+		size = XFS_ATTR_SF_ENTSIZE(sfe);
+		if (sfe->namelen != args->namelen)
+			continue;
+		if (memcmp(sfe->nameval, args->name, args->namelen) != 0)
+			continue;
+		if (!xfs_attr_namesp_match(args->flags, sfe->flags))
+			continue;
+		break;
+	}
+	if (i == end)
+		return -ENOATTR;
+	return 0;
+}
+
+/*
  * Remove an attribute from the shortform attribute list structure.
  */
 int
