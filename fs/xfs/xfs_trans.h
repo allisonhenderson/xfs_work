@@ -240,6 +240,8 @@ xfs_trans_get_attrd(struct xfs_trans *tp,
 		    struct xfs_attri_log_item *attrip);
 int xfs_trans_attr(	struct xfs_da_args *args,
 			struct xfs_attrd_log_item *attrdp,
+			struct xfs_buf **leaf_bp,
+			void *state,
 			uint32_t attr_op_flags);
 
 int		xfs_trans_commit(struct xfs_trans *);
