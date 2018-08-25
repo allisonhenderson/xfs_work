@@ -17,6 +17,7 @@
 #include "xfs_acl.h"
 #include "xfs_quota.h"
 #include "xfs_error.h"
+#include "xfs_da_btree.h"
 #include "xfs_attr.h"
 #include "xfs_trans.h"
 #include "xfs_trace.h"
