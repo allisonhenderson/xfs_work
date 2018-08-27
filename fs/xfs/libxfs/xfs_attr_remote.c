@@ -433,8 +433,7 @@ xfs_attr_rmtval_get(
  */
 int
 xfs_attr_rmtval_set(
-	struct xfs_da_args	*args,
-	bool			roll_trans)
+	struct xfs_da_args	*args)
 {
 	struct xfs_inode	*dp = args->dp;
 	struct xfs_mount	*mp = dp->i_mount;
@@ -488,26 +487,11 @@ xfs_attr_rmtval_set(
 		if (error)
 			goto out_defer_cancel;
 
-		if (roll_trans) {
-			error = xfs_defer_finish(&args->trans);
-			if (error)
-				return error;
-		}
-
 		ASSERT(nmap == 1);
 		ASSERT((map.br_startblock != DELAYSTARTBLOCK) &&
 		       (map.br_startblock != HOLESTARTBLOCK));
 		lblkno += map.br_blockcount;
 		blkcnt -= map.br_blockcount;
-
-		if (roll_trans) {
-			/*
-			 * Start the next trans in the chain.
-			 */
-			error = xfs_trans_roll_inode(&args->trans, dp);
-			if (error)
-				return error;
-		}
 	}
 
 	/*
@@ -570,8 +554,7 @@ out_defer_cancel:
  */
 int
 xfs_attr_rmtval_remove(
-	struct xfs_da_args	*args,
-	bool			roll_trans)
+	struct xfs_da_args	*args)
 {
 	struct xfs_mount	*mp = args->dp->i_mount;
 	xfs_dablk_t		lblkno;
@@ -633,19 +616,6 @@ xfs_attr_rmtval_remove(
 				    XFS_BMAPI_ATTRFORK, 1, &done);
 		if (error)
 			goto out_defer_cancel;
-
-		if (roll_trans) {
-			error = xfs_defer_finish(&args->trans);
-			if (error)
-				return error;
-
-			/*
-			 * Close out trans and start the next one in the chain.
-			 */
-			error = xfs_trans_roll_inode(&args->trans, args->dp);
-			if (error)
-				return error;
-		}
 	}
 	return 0;
 out_defer_cancel:
