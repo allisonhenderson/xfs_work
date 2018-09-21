@@ -17,6 +17,7 @@
 #include "xfs_scrub.h"
 #include "common.h"
 #include "inodes.h"
+#include "parent.h"
 
 /*
  * Iterate a range of inodes.
@@ -285,3 +286,28 @@ xfs_open_handle(
 	return open_by_fshandle(handle, sizeof(*handle),
 			O_RDONLY | O_NOATIME | O_NOFOLLOW | O_NOCTTY);
 }
+
+/* Construct a description for an inode. */
+void
+xfs_scrub_ino_descr(
+	struct scrub_ctx	*ctx,
+	struct xfs_handle	*handle,
+	char			*buf,
+	size_t			buflen)
+{
+	uint64_t		ino;
+	xfs_agnumber_t		agno;
+	xfs_agino_t		agino;
+	int			ret;
+
+	ret = handle_to_path(handle, sizeof(struct xfs_handle), buf, buflen);
+	if (ret >= 0)
+		return;
+
+	ino = handle->ha_fid.fid_ino;
+	agno = ino / (1ULL << (ctx->inopblog + ctx->agblklog));
+	agino = ino % (1ULL << (ctx->inopblog + ctx->agblklog));
+	snprintf(buf, buflen, _("inode %"PRIu64" (%u/%u)"), ino, agno,
+			agino);
+}
+
