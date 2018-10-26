@@ -343,13 +343,15 @@ xfs_allocbt_verify(
 	return xfs_btree_sblock_verify(bp, mp->m_alloc_mxr[level != 0]);
 }
 
-static void
+static int
 xfs_allocbt_read_verify(
 	struct xfs_buf	*bp)
 {
 	xfs_failaddr_t	fa;
+	int err = 0;
 
-	if (!xfs_btree_sblock_verify_crc(bp))
+	err = !xfs_btree_sblock_verify_crc(bp);
+	if (err)
 		xfs_verifier_error(bp, -EFSBADCRC, __this_address);
 	else {
 		fa = xfs_allocbt_verify(bp);
@@ -359,6 +361,7 @@ xfs_allocbt_read_verify(
 
 	if (bp->b_error)
 		trace_xfs_btree_corrupt(bp, _RET_IP_);
+	return err;
 }
 
 static void

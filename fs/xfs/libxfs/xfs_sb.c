@@ -679,7 +679,7 @@ xfs_sb_to_disk(
  * we are more forgiving, and ignore CRC failures if the primary doesn't
  * indicate that the fs version is V5.
  */
-static void
+static int
 xfs_sb_read_verify(
 	struct xfs_buf		*bp)
 {
@@ -722,6 +722,7 @@ out_error:
 		xfs_verifier_error(bp, error, __this_address);
 	else if (error)
 		xfs_buf_ioerror(bp, error);
+	return 0;
 }
 
 /*
@@ -730,7 +731,7 @@ out_error:
  * If we find an XFS superblock, then run a normal, noisy mount because we are
  * really going to mount it and want to know about errors.
  */
-static void
+static int
 xfs_sb_quiet_read_verify(
 	struct xfs_buf	*bp)
 {
@@ -739,10 +740,12 @@ xfs_sb_quiet_read_verify(
 	if (dsb->sb_magicnum == cpu_to_be32(XFS_SB_MAGIC)) {
 		/* XFS filesystem, verify noisily! */
 		xfs_sb_read_verify(bp);
-		return;
+		return 0;
 	}
 	/* quietly fail */
 	xfs_buf_ioerror(bp, -EWRONGFS);
+
+	return 0;
 }
 
 static void
