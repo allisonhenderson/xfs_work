@@ -150,7 +150,10 @@ struct bio {
 						 */
 	unsigned short		bi_flags;	/* status, etc and bvec pool number */
 	unsigned short		bi_ioprio;
-	unsigned short		bi_write_hint;
+	union {
+		unsigned short		bi_write_hint;
+		unsigned short		bi_read_mirror;
+	};
 	blk_status_t		bi_status;
 	u8			bi_partno;
 
