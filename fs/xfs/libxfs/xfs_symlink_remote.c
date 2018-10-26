@@ -112,7 +112,7 @@ xfs_symlink_verify(
 	return NULL;
 }
 
-static void
+static int
 xfs_symlink_read_verify(
 	struct xfs_buf	*bp)
 {
@@ -121,7 +121,7 @@ xfs_symlink_read_verify(
 
 	/* no verification of non-crc buffers */
 	if (!xfs_sb_version_hascrc(&mp->m_sb))
-		return;
+		return 0;
 
 	if (!xfs_buf_verify_cksum(bp, XFS_SYMLINK_CRC_OFF))
 		xfs_verifier_error(bp, -EFSBADCRC, __this_address);
@@ -130,6 +130,7 @@ xfs_symlink_read_verify(
 		if (fa)
 			xfs_verifier_error(bp, -EFSCORRUPTED, fa);
 	}
+	return 0;
 }
 
 static void

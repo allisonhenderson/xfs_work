@@ -69,21 +69,24 @@ xfs_dir3_block_verify(
 	return __xfs_dir3_data_check(NULL, bp);
 }
 
-static void
+static int
 xfs_dir3_block_read_verify(
 	struct xfs_buf	*bp)
 {
 	struct xfs_mount	*mp = bp->b_target->bt_mount;
 	xfs_failaddr_t		fa;
+	int			err = 0;
 
-	if (xfs_sb_version_hascrc(&mp->m_sb) &&
-	     !xfs_buf_verify_cksum(bp, XFS_DIR3_DATA_CRC_OFF))
+	err = xfs_sb_version_hascrc(&mp->m_sb) &&
+	     !xfs_buf_verify_cksum(bp, XFS_DIR3_DATA_CRC_OFF);
+	if (err)
 		xfs_verifier_error(bp, -EFSBADCRC, __this_address);
 	else {
 		fa = xfs_dir3_block_verify(bp);
 		if (fa)
 			xfs_verifier_error(bp, -EFSCORRUPTED, fa);
 	}
+	return err;
 }
 
 static void

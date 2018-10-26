@@ -343,21 +343,25 @@ xfs_attr3_leaf_write_verify(
  * incorrectly. In this case, we need to swap the verifier to match the correct
  * format of the block being read.
  */
-static void
+static int
 xfs_attr3_leaf_read_verify(
 	struct xfs_buf		*bp)
 {
 	struct xfs_mount	*mp = bp->b_target->bt_mount;
 	xfs_failaddr_t		fa;
+	int 			err = 0;
 
-	if (xfs_sb_version_hascrc(&mp->m_sb) &&
-	     !xfs_buf_verify_cksum(bp, XFS_ATTR3_LEAF_CRC_OFF))
+	err = (xfs_sb_version_hascrc(&mp->m_sb) &&
+	     !xfs_buf_verify_cksum(bp, XFS_ATTR3_LEAF_CRC_OFF));
+	if (err)
 		xfs_verifier_error(bp, -EFSBADCRC, __this_address);
 	else {
 		fa = xfs_attr3_leaf_verify(bp);
 		if (fa)
 			xfs_verifier_error(bp, -EFSCORRUPTED, fa);
+		err = (fa != NULL);
 	}
+	return err;
 }
 
 const struct xfs_buf_ops xfs_attr3_leaf_buf_ops = {

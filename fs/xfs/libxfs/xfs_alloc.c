@@ -592,12 +592,13 @@ xfs_agfl_verify(
 	return NULL;
 }
 
-static void
+static int
 xfs_agfl_read_verify(
 	struct xfs_buf	*bp)
 {
 	struct xfs_mount *mp = bp->b_target->bt_mount;
 	xfs_failaddr_t	fa;
+	int err = 0;
 
 	/*
 	 * There is no verification of non-crc AGFLs because mkfs does not
@@ -606,15 +607,19 @@ xfs_agfl_read_verify(
 	 * can't verify just those entries are valid.
 	 */
 	if (!xfs_sb_version_hascrc(&mp->m_sb))
-		return;
+		return 0;
 
-	if (!xfs_buf_verify_cksum(bp, XFS_AGFL_CRC_OFF))
+	err = !xfs_buf_verify_cksum(bp, XFS_AGFL_CRC_OFF);
+	if (err)
 		xfs_verifier_error(bp, -EFSBADCRC, __this_address);
 	else {
 		fa = xfs_agfl_verify(bp);
 		if (fa)
 			xfs_verifier_error(bp, -EFSCORRUPTED, fa);
+		err = fa != NULL;
 	}
+out:
+	return err;
 }
 
 static void
@@ -2629,21 +2634,25 @@ xfs_agf_verify(
 
 }
 
-static void
+static int
 xfs_agf_read_verify(
 	struct xfs_buf	*bp)
 {
 	struct xfs_mount *mp = bp->b_target->bt_mount;
 	xfs_failaddr_t	fa;
+	int err = 0;
 
-	if (xfs_sb_version_hascrc(&mp->m_sb) &&
-	    !xfs_buf_verify_cksum(bp, XFS_AGF_CRC_OFF))
+	err = (xfs_sb_version_hascrc(&mp->m_sb) &&
+	    !xfs_buf_verify_cksum(bp, XFS_AGF_CRC_OFF));
+	if (err)
 		xfs_verifier_error(bp, -EFSBADCRC, __this_address);
 	else {
 		fa = xfs_agf_verify(bp);
-		if (XFS_TEST_ERROR(fa, mp, XFS_ERRTAG_ALLOC_READ_AGF))
+		err = (XFS_TEST_ERROR(fa, mp, XFS_ERRTAG_ALLOC_READ_AGF));
+		if (err)
 			xfs_verifier_error(bp, -EFSCORRUPTED, fa);
 	}
+	return err;
 }
 
 static void

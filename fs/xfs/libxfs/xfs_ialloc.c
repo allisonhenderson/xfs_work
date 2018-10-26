@@ -2547,7 +2547,7 @@ xfs_agi_verify(
 	return NULL;
 }
 
-static void
+static int
 xfs_agi_read_verify(
 	struct xfs_buf	*bp)
 {
@@ -2562,6 +2562,7 @@ xfs_agi_read_verify(
 		if (XFS_TEST_ERROR(fa, mp, XFS_ERRTAG_IALLOC_READ_AGI))
 			xfs_verifier_error(bp, -EFSCORRUPTED, fa);
 	}
+	return 0;
 }
 
 static void

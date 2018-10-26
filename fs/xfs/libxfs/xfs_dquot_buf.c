@@ -231,15 +231,19 @@ xfs_dquot_buf_verify_struct(
 	return xfs_dquot_buf_verify(mp, bp, false);
 }
 
-static void
+static int
 xfs_dquot_buf_read_verify(
 	struct xfs_buf		*bp)
 {
 	struct xfs_mount	*mp = bp->b_target->bt_mount;
+	int			err = 0;
 
-	if (!xfs_dquot_buf_verify_crc(mp, bp, false))
-		return;
+	err = !xfs_dquot_buf_verify_crc(mp, bp, false);
+	if (err)
+		return err;
+
 	xfs_dquot_buf_verify(mp, bp, false);
+	return err;
 }
 
 /*
@@ -248,17 +252,21 @@ xfs_dquot_buf_read_verify(
  * xfs_inode_buf_verify() for why we use EIO and ~XBF_DONE here rather than
  * reporting the failure.
  */
-static void
+static int
 xfs_dquot_buf_readahead_verify(
 	struct xfs_buf	*bp)
 {
 	struct xfs_mount	*mp = bp->b_target->bt_mount;
+	int			err = 0;
 
-	if (!xfs_dquot_buf_verify_crc(mp, bp, true) ||
-	    xfs_dquot_buf_verify(mp, bp, true) != NULL) {
+	err = !xfs_dquot_buf_verify_crc(mp, bp, true) ||
+	    (xfs_dquot_buf_verify(mp, bp, true) != NULL);
+
+	if (err) {
 		xfs_buf_ioerror(bp, -EIO);
 		bp->b_flags &= ~XBF_DONE;
 	}
+	return err;
 }
 
 /*

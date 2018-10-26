@@ -124,18 +124,20 @@ xfs_inode_buf_verify(
 }
 
 
-static void
+static int
 xfs_inode_buf_read_verify(
 	struct xfs_buf	*bp)
 {
 	xfs_inode_buf_verify(bp, false);
+	return 0;
 }
 
-static void
+static int
 xfs_inode_buf_readahead_verify(
 	struct xfs_buf	*bp)
 {
 	xfs_inode_buf_verify(bp, true);
+	return 0;
 }
 
 static void

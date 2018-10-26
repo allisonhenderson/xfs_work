@@ -195,16 +195,18 @@ xfs_da3_node_write_verify(
  * incorrectly. In this case, we need to swap the verifier to match the correct
  * format of the block being read.
  */
-static void
+static int
 xfs_da3_node_read_verify(
 	struct xfs_buf		*bp)
 {
 	struct xfs_da_blkinfo	*info = bp->b_addr;
 	xfs_failaddr_t		fa;
+	int			err = 0;
 
 	switch (be16_to_cpu(info->magic)) {
 		case XFS_DA3_NODE_MAGIC:
-			if (!xfs_buf_verify_cksum(bp, XFS_DA3_NODE_CRC_OFF)) {
+			err = !xfs_buf_verify_cksum(bp, XFS_DA3_NODE_CRC_OFF);
+			if (err) {
 				xfs_verifier_error(bp, -EFSBADCRC,
 						__this_address);
 				break;
@@ -214,21 +216,23 @@ xfs_da3_node_read_verify(
 			fa = xfs_da3_node_verify(bp);
 			if (fa)
 				xfs_verifier_error(bp, -EFSCORRUPTED, fa);
-			return;
+			err = (fa != NULL);
+			break;
 		case XFS_ATTR_LEAF_MAGIC:
 		case XFS_ATTR3_LEAF_MAGIC:
 			bp->b_ops = &xfs_attr3_leaf_buf_ops;
-			bp->b_ops->verify_read(bp);
-			return;
+			err = bp->b_ops->verify_read(bp);
+			break;
 		case XFS_DIR2_LEAFN_MAGIC:
 		case XFS_DIR3_LEAFN_MAGIC:
 			bp->b_ops = &xfs_dir3_leafn_buf_ops;
-			bp->b_ops->verify_read(bp);
-			return;
+			err = bp->b_ops->verify_read(bp);
+			break;
 		default:
 			xfs_verifier_error(bp, -EFSCORRUPTED, __this_address);
 			break;
 	}
+	return err;
 }
 
 /* Verify the structure of a da3 block. */

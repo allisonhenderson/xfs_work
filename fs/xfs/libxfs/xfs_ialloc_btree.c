@@ -295,7 +295,7 @@ xfs_inobt_verify(
 	return xfs_btree_sblock_verify(bp, mp->m_inobt_mxr[level != 0]);
 }
 
-static void
+static int
 xfs_inobt_read_verify(
 	struct xfs_buf	*bp)
 {
@@ -311,6 +311,7 @@ xfs_inobt_read_verify(
 
 	if (bp->b_error)
 		trace_xfs_btree_corrupt(bp, _RET_IP_);
+	return 0;
 }
 
 static void

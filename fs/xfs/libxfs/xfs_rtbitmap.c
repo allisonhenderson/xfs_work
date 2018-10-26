@@ -34,11 +34,11 @@
  * We don't have anything to verify, however, so these are just dummy
  * operations.
  */
-static void
+static int
 xfs_rtbuf_verify_read(
 	struct xfs_buf	*bp)
 {
-	return;
+	return 0;
 }
 
 static void

@@ -147,7 +147,7 @@ __xfs_attr3_rmt_read_verify(
 	return 0;
 }
 
-static void
+static int
 xfs_attr3_rmt_read_verify(
 	struct xfs_buf	*bp)
 {
@@ -157,6 +157,7 @@ xfs_attr3_rmt_read_verify(
 	error = __xfs_attr3_rmt_read_verify(bp, true, &fa);
 	if (error)
 		xfs_verifier_error(bp, error, fa);
+	return error;
 }
 
 static xfs_failaddr_t
