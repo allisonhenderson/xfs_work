@@ -273,44 +273,50 @@ xfs_dir3_data_verify(
  * oblivious to the format of the directory. Hence we can either get a block
  * format buffer or a data format buffer on readahead.
  */
-static void
+static int
 xfs_dir3_data_reada_verify(
 	struct xfs_buf		*bp)
 {
 	struct xfs_dir2_data_hdr *hdr = bp->b_addr;
+	int 			err = 0;
 
 	switch (hdr->magic) {
 	case cpu_to_be32(XFS_DIR2_BLOCK_MAGIC):
 	case cpu_to_be32(XFS_DIR3_BLOCK_MAGIC):
 		bp->b_ops = &xfs_dir3_block_buf_ops;
-		bp->b_ops->verify_read(bp);
-		return;
+		err = bp->b_ops->verify_read(bp);
+		break;
 	case cpu_to_be32(XFS_DIR2_DATA_MAGIC):
 	case cpu_to_be32(XFS_DIR3_DATA_MAGIC):
 		bp->b_ops = &xfs_dir3_data_buf_ops;
-		bp->b_ops->verify_read(bp);
-		return;
+		err = bp->b_ops->verify_read(bp);
+		break;
 	default:
 		xfs_verifier_error(bp, -EFSCORRUPTED, __this_address);
 		break;
 	}
+	return err;
 }
 
-static void
+static int
 xfs_dir3_data_read_verify(
 	struct xfs_buf	*bp)
 {
 	struct xfs_mount	*mp = bp->b_target->bt_mount;
 	xfs_failaddr_t		fa;
+	int			err = 0;
 
-	if (xfs_sb_version_hascrc(&mp->m_sb) &&
-	    !xfs_buf_verify_cksum(bp, XFS_DIR3_DATA_CRC_OFF))
+	err = xfs_sb_version_hascrc(&mp->m_sb) &&
+	    !xfs_buf_verify_cksum(bp, XFS_DIR3_DATA_CRC_OFF);
+	if (err)
 		xfs_verifier_error(bp, -EFSBADCRC, __this_address);
 	else {
 		fa = xfs_dir3_data_verify(bp);
 		if (fa)
 			xfs_verifier_error(bp, -EFSCORRUPTED, fa);
+		err = (fa != NULL);
 	}
+	return err;
 }
 
 static void

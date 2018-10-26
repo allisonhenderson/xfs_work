@@ -173,22 +173,26 @@ xfs_dir3_leaf_verify(
 	return xfs_dir3_leaf_check_int(mp, NULL, NULL, leaf);
 }
 
-static void
+static int
 __read_verify(
 	struct xfs_buf  *bp,
 	uint16_t	magic)
 {
 	struct xfs_mount	*mp = bp->b_target->bt_mount;
 	xfs_failaddr_t		fa;
+	int			err = 0;
 
-	if (xfs_sb_version_hascrc(&mp->m_sb) &&
-	     !xfs_buf_verify_cksum(bp, XFS_DIR3_LEAF_CRC_OFF))
+	err = (xfs_sb_version_hascrc(&mp->m_sb) &&
+	     !xfs_buf_verify_cksum(bp, XFS_DIR3_LEAF_CRC_OFF));
+	if (err)
 		xfs_verifier_error(bp, -EFSBADCRC, __this_address);
 	else {
 		fa = xfs_dir3_leaf_verify(bp, magic);
 		if (fa)
 			xfs_verifier_error(bp, -EFSCORRUPTED, fa);
+		err = (fa != NULL);
 	}
+	return err;
 }
 
 static void
@@ -223,11 +227,11 @@ xfs_dir3_leaf1_verify(
 	return xfs_dir3_leaf_verify(bp, XFS_DIR2_LEAF1_MAGIC);
 }
 
-static void
+static int;
 xfs_dir3_leaf1_read_verify(
 	struct xfs_buf	*bp)
 {
-	__read_verify(bp, XFS_DIR2_LEAF1_MAGIC);
+	return __read_verify(bp, XFS_DIR2_LEAF1_MAGIC);
 }
 
 static void
@@ -244,11 +248,11 @@ xfs_dir3_leafn_verify(
 	return xfs_dir3_leaf_verify(bp, XFS_DIR2_LEAFN_MAGIC);
 }
 
-static void
+static int
 xfs_dir3_leafn_read_verify(
 	struct xfs_buf	*bp)
 {
-	__read_verify(bp, XFS_DIR2_LEAFN_MAGIC);
+	return __read_verify(bp, XFS_DIR2_LEAFN_MAGIC);
 }
 
 static void

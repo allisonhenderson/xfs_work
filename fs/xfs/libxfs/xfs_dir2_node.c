@@ -108,21 +108,25 @@ xfs_dir3_free_verify(
 	return NULL;
 }
 
-static void
+static int
 xfs_dir3_free_read_verify(
 	struct xfs_buf	*bp)
 {
 	struct xfs_mount	*mp = bp->b_target->bt_mount;
 	xfs_failaddr_t		fa;
+	int			err = 0;
 
-	if (xfs_sb_version_hascrc(&mp->m_sb) &&
-	    !xfs_buf_verify_cksum(bp, XFS_DIR3_FREE_CRC_OFF))
+	err = xfs_sb_version_hascrc(&mp->m_sb) &&
+	    !xfs_buf_verify_cksum(bp, XFS_DIR3_FREE_CRC_OFF);
+	if (err)
 		xfs_verifier_error(bp, -EFSBADCRC, __this_address);
 	else {
 		fa = xfs_dir3_free_verify(bp);
 		if (fa)
 			xfs_verifier_error(bp, -EFSCORRUPTED, fa);
+		err = (fa != NULL);
 	}
+	return err;
 }
 
 static void

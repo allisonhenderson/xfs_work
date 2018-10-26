@@ -175,7 +175,7 @@ xchk_da_btree_ptr_ok(
  * form of leafn blocks.  Since the regular da code doesn't handle
  * leaf1, we must multiplex the verifiers.
  */
-static void
+static int
 xchk_da_btree_read_verify(
 	struct xfs_buf		*bp)
 {
@@ -186,7 +186,7 @@ xchk_da_btree_read_verify(
 	case XFS_DIR3_LEAF1_MAGIC:
 		bp->b_ops = &xfs_dir3_leaf1_buf_ops;
 		bp->b_ops->verify_read(bp);
-		return;
+		return 0;
 	default:
 		/*
 		 * xfs_da3_node_buf_ops already know how to handle
@@ -194,8 +194,10 @@ xchk_da_btree_read_verify(
 		 */
 		bp->b_ops = &xfs_da3_node_buf_ops;
 		bp->b_ops->verify_read(bp);
-		return;
+		return 0;
 	}
+
+	return 0;
 }
 static void
 xchk_da_btree_write_verify(
