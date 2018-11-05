@@ -197,6 +197,9 @@ typedef struct xfs_buf {
 	unsigned long		b_first_retry_time; /* in jiffies */
 	int			b_last_error;
 
+	/* The last mirror to have tried */
+	int			b_last_mirror;
+
 	const struct xfs_buf_ops	*b_ops;
 } xfs_buf_t;
 

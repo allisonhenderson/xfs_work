@@ -1147,7 +1147,10 @@ void
 xfs_buf_ioend(
 	struct xfs_buf	*bp)
 {
-	bool		read = bp->b_flags & XBF_READ;
+	bool			read = bp->b_flags & XBF_READ;
+	struct super_block	*sb = bp->b_target->bt_mount->m_super;
+	struct request_queue	*q;
+	int			err = 0;
 
 	trace_xfs_buf_iodone(bp, _RET_IP_);
 
@@ -1163,7 +1166,14 @@ xfs_buf_ioend(
 	/* Only validate buffers that were read without errors */
 	if (read && !bp->b_error && bp->b_ops) {
 		ASSERT(!bp->b_iodone);
-		bp->b_ops->verify_read(bp);
+		err = bp->b_ops->verify_read(bp);
+		q = bdev_get_queue(sb->s_bdev);
+
+		if (err && bp->b_last_mirror < q->mirrors) {
+			bp->b_last_mirror++;
+			__xfs_buf_submit(bp, false);
+		} else
+			bp->b_last_mirror = 0;
 	}
 
 	if (!bp->b_error)
