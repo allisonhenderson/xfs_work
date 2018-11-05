@@ -227,11 +227,11 @@ static struct bio *bounce_clone_bio(struct bio *bio_src, gfp_t gfp_mask,
 	bio = bio_alloc_bioset(gfp_mask, bio_segments(bio_src), bs);
 	if (!bio)
 		return NULL;
-	bio->bi_disk		= bio_src->bi_disk;
-	bio->bi_opf		= bio_src->bi_opf;
-	bio->bi_write_hint	= bio_src->bi_write_hint;
-	bio->bi_iter.bi_sector	= bio_src->bi_iter.bi_sector;
-	bio->bi_iter.bi_size	= bio_src->bi_iter.bi_size;
+	bio->bi_disk = bio_src->bi_disk;
+	bio->bi_opf = bio_src->bi_opf;
+	bio->bi_rw_hint	= bio_src->bi_rw_hint;
+	bio->bi_iter.bi_sector = bio_src->bi_iter.bi_sector;
+	bio->bi_iter.bi_size = bio_src->bi_iter.bi_size;
 
 	switch (bio_op(bio)) {
 	case REQ_OP_DISCARD:

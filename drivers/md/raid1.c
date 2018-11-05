@@ -1102,7 +1102,7 @@ static void alloc_behind_master_bio(struct r1bio *r1_bio,
 		goto skip_copy;
 	}
 
-	behind_bio->bi_write_hint = bio->bi_write_hint;
+	behind_bio->bi_rw_hint = bio->bi_rw_hint;
 
 	while (i < vcnt && size) {
 		struct page *page;
@@ -1230,6 +1230,15 @@ static void raid1_read_request(struct mddev *mddev, struct bio *bio,
 		init_r1bio(r1_bio, mddev, bio);
 	r1_bio->sectors = max_read_sectors;
 
+	if (bio->bi_rw_hint) {
+		/* Todo:  xxx update max_sectors properly */
+		max_sectors = max_read_sectors;
+		rdisk = bio->bi_rw_hint - 1;
+
+		if (rdisk > conf->raid_disks)
+			rdisk = conf->raid_disks;
+		goto skip_read_balance;
+	}
 	/*
 	 * make_request() can abort the operation when read-ahead is being
 	 * used and no empty request is available.
@@ -1247,6 +1256,10 @@ static void raid1_read_request(struct mddev *mddev, struct bio *bio,
 		raid_end_bio_io(r1_bio);
 		return;
 	}
+	/* update where this IO locates */
+	bio->bi_rw_hint = rdisk;
+
+skip_read_balance:
 	mirror = conf->mirrors + rdisk;
 
 	if (print_msg)

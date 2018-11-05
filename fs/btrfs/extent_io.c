@@ -2800,7 +2800,8 @@ static int submit_extent_page(unsigned int opf, struct extent_io_tree *tree,
 	bio_add_page(bio, page, page_size, pg_offset);
 	bio->bi_end_io = end_io_func;
 	bio->bi_private = tree;
-	bio->bi_write_hint = page->mapping->host->i_write_hint;
+	if (opf & REQ_OP_WRITE)
+		bio->bi_rw_hint = page->mapping->host->i_write_hint;
 	bio->bi_opf = opf;
 	if (wbc) {
 		wbc_init_bio(wbc, bio);

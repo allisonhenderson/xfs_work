@@ -516,7 +516,7 @@ static void nvme_assign_write_stream(struct nvme_ctrl *ctrl,
 				     struct request *req, u16 *control,
 				     u32 *dsmgmt)
 {
-	enum rw_hint streamid = req->write_hint;
+	enum rw_hint streamid = req->rw_hint;
 
 	if (streamid == WRITE_LIFE_NOT_SET || streamid == WRITE_LIFE_NONE)
 		streamid = 0;

@@ -701,10 +701,10 @@ static struct request *attempt_merge(struct request_queue *q,
 		return NULL;
 
 	/*
-	 * Don't allow merge of different write hints, or for a hint with
+	 * Don't allow merge of different rw hints, or for a hint with
 	 * non-hint IO.
 	 */
-	if (req->write_hint != next->write_hint)
+	if (req->rw_hint != next->rw_hint)
 		return NULL;
 
 	/*
@@ -831,10 +831,10 @@ bool blk_rq_merge_ok(struct request *rq, struct bio *bio)
 		return false;
 
 	/*
-	 * Don't allow merge of different write hints, or for a hint with
+	 * Don't allow merge of different rw hints, or for a hint with
 	 * non-hint IO.
 	 */
-	if (rq->write_hint != bio->bi_write_hint)
+	if (rq->rw_hint != bio->bi_rw_hint)
 		return false;
 
 	return true;

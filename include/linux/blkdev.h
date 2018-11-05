@@ -234,7 +234,7 @@ struct request {
 	unsigned short nr_integrity_segments;
 #endif
 
-	unsigned short write_hint;
+	unsigned short rw_hint;
 	unsigned short ioprio;
 
 	void *special;		/* opaque pointer available for LLD use */
@@ -667,6 +667,7 @@ struct request_queue {
 
 #define BLK_MAX_WRITE_HINTS	5
 	u64			write_hints[BLK_MAX_WRITE_HINTS];
+	int			mirrors;
 };
 
 #define QUEUE_FLAG_QUEUED	0	/* uses generic tag queueing */

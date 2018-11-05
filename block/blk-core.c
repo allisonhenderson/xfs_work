@@ -1076,7 +1076,9 @@ struct request_queue *blk_alloc_queue_node(gfp_t gfp_mask, int node_id,
 
 	if (blkcg_init_queue(q))
 		goto fail_ref;
-
+	/* default value is 1 */
+	q->mirrors = 1;
+	
 	return q;
 
 fail_ref:
@@ -1981,7 +1983,7 @@ void blk_init_request_from_bio(struct request *req, struct bio *bio)
 		req->ioprio = ioc->ioprio;
 	else
 		req->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_NONE, 0);
-	req->write_hint = bio->bi_write_hint;
+	req->rw_hint = bio->bi_rw_hint;
 	blk_rq_bio_prep(req->q, req, bio);
 }
 EXPORT_SYMBOL_GPL(blk_init_request_from_bio);

@@ -5648,6 +5648,10 @@ int md_run(struct mddev *mddev)
 			blk_queue_flag_clear(QUEUE_FLAG_NONROT, mddev->queue);
 		mddev->queue->backing_dev_info->congested_data = mddev;
 		mddev->queue->backing_dev_info->congested_fn = md_congested;
+
+		/* Todo: only raid1 considered now */
+		if (mddev->level == 1)
+			mddev->queue->mirrors = mddev->raid_disks;
 	}
 	if (pers->sync_request) {
 		if (mddev->kobj.sd &&
