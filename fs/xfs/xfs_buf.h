@@ -204,6 +204,12 @@ typedef struct xfs_buf {
 	 */
 	unsigned short		b_rw_hint;
 
+	/* Index of the last alternate device to try */
+	unsigned short		b_alt_dev_idx;
+
+	/* The last device to have failed verification */
+	unsigned short		b_failed_device;
+
 	const struct xfs_buf_ops	*b_ops;
 } xfs_buf_t;
 

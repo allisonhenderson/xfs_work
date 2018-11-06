@@ -1147,7 +1147,10 @@ void
 xfs_buf_ioend(
 	struct xfs_buf	*bp)
 {
-	bool		read = bp->b_flags & XBF_READ;
+	bool			read = bp->b_flags & XBF_READ;
+	struct super_block	*sb = bp->b_target->bt_mount->m_super;
+	struct request_queue	*q = bdev_get_queue(sb->s_bdev);
+	int			err = 0;
 
 	trace_xfs_buf_iodone(bp, _RET_IP_);
 
@@ -1163,7 +1166,33 @@ xfs_buf_ioend(
 	/* Only validate buffers that were read without errors */
 	if (read && !bp->b_error && bp->b_ops) {
 		ASSERT(!bp->b_iodone);
-		bp->b_ops->verify_read(bp);
+		err = bp->b_ops->verify_read(bp);
+
+		if (err) {
+
+			/*
+			 * If this is the first failed read,
+			 * mark this as the failed device
+			 */
+			if (bp->b_alt_dev_idx == 0)
+				bp->b_failed_device = bp->b_rw_hint;
+
+			/* Try the next device (1 through q->mirrors) */
+			bp->b_alt_dev_idx++;
+
+			/* Skip over failed device */
+			if (bp->b_alt_dev_idx == bp->b_failed_device)
+				bp->b_alt_dev_idx++;
+
+			/*
+			 * If there are devices left to try, set the hint
+			 * and resubmit the buffer
+			 */
+			if (bp->b_alt_dev_idx <= q->mirrors) {
+				bp->b_rw_hint = bp->b_alt_dev_idx;
+				__xfs_buf_submit(bp, false);
+			}
+		}
 	}
 
 	if (!bp->b_error)
