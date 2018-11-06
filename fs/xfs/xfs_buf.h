@@ -197,6 +197,13 @@ typedef struct xfs_buf {
 	unsigned long		b_first_retry_time; /* in jiffies */
 	int			b_last_error;
 
+	/*
+	 * If b_rw_hint is set before a read, it specifies an alternate mirror
+	 * to read from.  Upon bio completion, b_rw_hint stores the last mirror
+	 * that was read from
+	 */
+	unsigned short		b_rw_hint;
+
 	const struct xfs_buf_ops	*b_ops;
 } xfs_buf_t;
 
