@@ -21,6 +21,7 @@
 #include <linux/migrate.h>
 #include <linux/backing-dev.h>
 #include <linux/freezer.h>
+#include <linux/blkdev.h>
 
 #include "xfs_format.h"
 #include "xfs_log_format.h"
@@ -808,6 +809,8 @@ xfs_buf_read_map(
 	const struct xfs_buf_ops *ops)
 {
 	struct xfs_buf		*bp;
+	struct request_queue	*q;
+	unsigned short		i;
 
 	flags |= XBF_READ;
 
@@ -820,7 +823,30 @@ xfs_buf_read_map(
 	if (!(bp->b_flags & XBF_DONE)) {
 		XFS_STATS_INC(target->bt_mount, xb_get_read);
 		bp->b_ops = ops;
-		_xfs_buf_read(bp, flags);
+		q = bdev_get_queue(bp->b_target->bt_bdev);
+
+		/*
+		 * Mirrors are indexed 1 - n, specified through the rw_hint.
+		 * Setting the hint to 0 is unspecified and allows the block
+		 * layer to decide.
+		 */
+		for (i = 0; i <= blk_queue_get_mirrors(q); i++) {
+			bp->b_error = 0;
+			bp->b_rw_hint = i;
+			_xfs_buf_read(bp, flags);
+
+			switch (bp->b_error) {
+			case -EIO:
+			case -EFSCORRUPTED:
+			case -EFSBADCRC:
+				/* loop again */
+				continue;
+			default:
+				goto retry_done;
+			}
+
+		}
+retry_done:
 		return bp;
 	}
 
