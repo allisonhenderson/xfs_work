@@ -833,6 +833,10 @@ xfs_buf_read_map(
 		for (i = 0; i <= blk_queue_get_mirrors(q); i++) {
 			bp->b_error = 0;
 			bp->b_rw_hint = i;
+
+			if (i > 0)
+				xfs_alert(bp->b_target->bt_mount,
+					  "Retrying read from disk %hu",i);
 			_xfs_buf_read(bp, flags);
 
 			switch (bp->b_error) {
@@ -840,6 +844,11 @@ xfs_buf_read_map(
 			case -EFSCORRUPTED:
 			case -EFSBADCRC:
 				/* loop again */
+				trace_xfs_buf_ioretry(bp, _RET_IP_);
+				xfs_alert(bp->b_target->bt_mount,
+					  "Read error:%d from disk number %hu",
+					   bp->b_error, bp->b_rw_hint);
+
 				continue;
 			default:
 				goto retry_done;
