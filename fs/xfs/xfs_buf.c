@@ -840,6 +840,11 @@ xfs_buf_read_map(
 			case -EFSCORRUPTED:
 			case -EFSBADCRC:
 				/* loop again */
+				trace_xfs_buf_ioretry(bp, _RET_IP_);
+				xfs_alert(bp->b_target->bt_mount,
+		"read error from disk number %hu. Retrying read from disk %hu",
+				bp->b_rw_hint, i+1);
+
 				continue;
 			default:
 				break;

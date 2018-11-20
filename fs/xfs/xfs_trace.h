@@ -276,6 +276,7 @@ DECLARE_EVENT_CLASS(xfs_buf_class,
 		__field(int, pincount)
 		__field(unsigned, lockval)
 		__field(unsigned, flags)
+		__field(unsigned short, rw_hint)
 		__field(unsigned long, caller_ip)
 	),
 	TP_fast_assign(
@@ -286,10 +287,11 @@ DECLARE_EVENT_CLASS(xfs_buf_class,
 		__entry->pincount = atomic_read(&bp->b_pin_count);
 		__entry->lockval = bp->b_sema.count;
 		__entry->flags = bp->b_flags;
+		__entry->rw_hint = bp->b_rw_hint;
 		__entry->caller_ip = caller_ip;
 	),
 	TP_printk("dev %d:%d bno 0x%llx nblks 0x%x hold %d pincount %d "
-		  "lock %d flags %s caller %pS",
+		  "lock %d flags %s rw_hint %hu caller %pS",
 		  MAJOR(__entry->dev), MINOR(__entry->dev),
 		  (unsigned long long)__entry->bno,
 		  __entry->nblks,
@@ -297,6 +299,7 @@ DECLARE_EVENT_CLASS(xfs_buf_class,
 		  __entry->pincount,
 		  __entry->lockval,
 		  __print_flags(__entry->flags, "|", XFS_BUF_FLAGS),
+		  __entry->rw_hint,
 		  (void *)__entry->caller_ip)
 )
 
@@ -309,6 +312,7 @@ DEFINE_BUF_EVENT(xfs_buf_free);
 DEFINE_BUF_EVENT(xfs_buf_hold);
 DEFINE_BUF_EVENT(xfs_buf_rele);
 DEFINE_BUF_EVENT(xfs_buf_iodone);
+DEFINE_BUF_EVENT(xfs_buf_ioretry);
 DEFINE_BUF_EVENT(xfs_buf_submit);
 DEFINE_BUF_EVENT(xfs_buf_lock);
 DEFINE_BUF_EVENT(xfs_buf_lock_done);
