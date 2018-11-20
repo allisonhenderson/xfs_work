@@ -846,6 +846,14 @@ xfs_buf_read_map(
 			}
 
 		}
+
+		/*
+		 * if we had to try more than one mirror to sucessfully read
+		 * the buffer, write the buffer back
+		 */
+		if (!bp->b_error && i > 0)
+			xfs_bwrite(bp);
+
 		return bp;
 	}
 
