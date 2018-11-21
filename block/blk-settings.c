@@ -904,6 +904,24 @@ void blk_queue_write_cache(struct request_queue *q, bool wc, bool fua)
 }
 EXPORT_SYMBOL_GPL(blk_queue_write_cache);
 
+/*
+ * Get the number of read redundant mirrors.
+ */
+unsigned short blk_queue_get_mirrors(struct request_queue *q)
+{
+	return q->nr_mirrors;
+}
+EXPORT_SYMBOL(blk_queue_get_mirrors);
+
+/*
+ * Set the number of read redundant mirrors.
+ */
+void blk_queue_set_mirrors(struct request_queue *q, unsigned short mirrors)
+{
+	q->nr_mirrors = mirrors;
+}
+EXPORT_SYMBOL(blk_queue_set_mirrors);
+
 static int __init blk_settings_init(void)
 {
 	blk_max_low_pfn = max_low_pfn - 1;
