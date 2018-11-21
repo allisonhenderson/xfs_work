@@ -1102,7 +1102,7 @@ static void alloc_behind_master_bio(struct r1bio *r1_bio,
 		goto skip_copy;
 	}
 
-	behind_bio->bi_write_hint = bio->bi_write_hint;
+	behind_bio->bi_rw_hint = bio->bi_rw_hint;
 
 	while (i < vcnt && size) {
 		struct page *page;

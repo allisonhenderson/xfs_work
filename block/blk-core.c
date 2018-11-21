@@ -1980,7 +1980,7 @@ void blk_init_request_from_bio(struct request *req, struct bio *bio)
 		req->ioprio = ioc->ioprio;
 	else
 		req->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_NONE, 0);
-	req->write_hint = bio->bi_write_hint;
+	req->rw_hint = bio->bi_rw_hint;
 	blk_rq_bio_prep(req->q, req, bio);
 }
 EXPORT_SYMBOL_GPL(blk_init_request_from_bio);
@@ -2314,6 +2314,14 @@ generic_make_request_checks(struct bio *bio)
 		if (!q->limits.max_write_zeroes_sectors)
 			goto not_supported;
 		break;
+	/*
+	 * Zero is special value which means upper layer e.g fs don't care
+	 * about reading from which mirror.
+	 * Starting from 1 means reading from mirror 'bi_rw_hint-1' mandatory.
+	 */
+	case REQ_OP_READ:
+		if (bio->bi_rw_hint < 0 || bio->bi_rw_hint > q->nr_mirrors)
+			goto not_supported;
 	default:
 		break;
 	}

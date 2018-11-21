@@ -234,7 +234,7 @@ struct request {
 	unsigned short nr_integrity_segments;
 #endif
 
-	unsigned short write_hint;
+	unsigned short rw_hint;
 	unsigned short ioprio;
 
 	void *special;		/* opaque pointer available for LLD use */
