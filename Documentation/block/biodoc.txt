@@ -431,6 +431,7 @@ struct bio {
        struct bio          *bi_next;    /* request queue link */
        struct block_device *bi_bdev;	/* target device */
        unsigned long       bi_flags;    /* status, command, etc */
+       unsigned short	   bi_rw_hint;  /* bio read/write hint */
        unsigned long       bi_opf;       /* low bits: r/w, high: priority */
 
        unsigned int	bi_vcnt;     /* how may bio_vec's */
@@ -465,6 +466,12 @@ With this multipage bio design:
   (e.g a 1MB bio_vec needs to be handled in max 128kB chunks for IDE)
   [TBD: Should preferably also have a bi_voffset and bi_vlen to avoid modifying
    bi_offset an len fields]
+- bi_rw_hint is an in/out parameter. Fs can set bi_rw_hint in submit_bio() to
+  specify which mirror/copy to read from by force. Zero is a special value
+  means fs don't care about reading from which mirror/copy. Starting from 1
+  means to read from the 'bi_rw_hint-1' mirror mandatory.
+  bi_rw_hint was set to indicate which mirror this i/o was really
+  happened on completion.
 
 (*) unrelated merges -- a request ends up containing two or more bios that
     didn't originate from the same place.
