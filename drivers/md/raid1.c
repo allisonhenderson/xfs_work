@@ -1230,6 +1230,13 @@ static void raid1_read_request(struct mddev *mddev, struct bio *bio,
 		init_r1bio(r1_bio, mddev, bio);
 	r1_bio->sectors = max_read_sectors;
 
+	if (bio->bi_rw_hint) {
+		/* Todo: update max_sectors properly */
+		max_sectors = max_read_sectors;
+		rdisk = bio->bi_rw_hint - 1;
+		goto skip_read_balance;
+	}
+
 	/*
 	 * make_request() can abort the operation when read-ahead is being
 	 * used and no empty request is available.
@@ -1247,6 +1254,18 @@ static void raid1_read_request(struct mddev *mddev, struct bio *bio,
 		raid_end_bio_io(r1_bio);
 		return;
 	}
+
+skip_read_balance:
+	/* Recording i/o went to which real device. */
+	bio->bi_rw_hint = rdisk;
+
+	/*
+	 * Consider replacement as a special case, use original device to
+	 * indicate which mirror this i/o was happened.
+	 */
+	if (bio->bi_rw_hint >= conf->raid_disks)
+		bio->bi_rw_hint -= conf->raid_disks;
+
 	mirror = conf->mirrors + rdisk;
 
 	if (print_msg)
@@ -3078,6 +3097,7 @@ static int raid1_run(struct mddev *mddev)
 	if (mddev->queue) {
 		blk_queue_max_write_same_sectors(mddev->queue, 0);
 		blk_queue_max_write_zeroes_sectors(mddev->queue, 0);
+		blk_queue_set_mirrors(mddev->queue, mddev->raid_disks);
 	}
 
 	rdev_for_each(rdev, mddev) {
