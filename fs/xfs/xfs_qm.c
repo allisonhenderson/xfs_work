@@ -822,6 +822,7 @@ xfs_qm_qino_alloc(
 	}
 	if (need_alloc)
 		xfs_finish_inode_setup(*ip);
+	xfs_iunlock(*ip, XFS_ILOCK_EXCL);
 	return error;
 }
 
