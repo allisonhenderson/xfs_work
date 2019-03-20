@@ -9,7 +9,7 @@
 int xfs_attr3_rmt_blocks(struct xfs_mount *mp, int attrlen);
 
 int xfs_attr_rmtval_get(struct xfs_da_args *args);
-int xfs_attr_rmtval_set(struct xfs_da_args *args);
-int xfs_attr_rmtval_remove(struct xfs_da_args *args);
+int xfs_attr_rmtval_set(struct xfs_da_args *args, bool roll_trans);
+int xfs_attr_rmtval_remove(struct xfs_da_args *args, bool roll_trans);
 
 #endif /* __XFS_ATTR_REMOTE_H__ */
