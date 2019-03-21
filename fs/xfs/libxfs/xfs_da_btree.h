@@ -94,6 +94,7 @@ typedef struct xfs_da_args {
 	int		op_flags;	/* operation flags */
 	enum xfs_dacmp	cmpresult;	/* name compare result for lookups */
 	struct xfs_delay_context  dc;	/* context used for delay attr ops */
+	xfs_dir2_dataptr_t offset;	/* OUT: offset in directory */
 } xfs_da_args_t;
 
 /*
