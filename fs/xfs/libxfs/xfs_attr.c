@@ -508,9 +508,11 @@ xfs_attr_set(
 	struct xfs_mount	*mp = dp->i_mount;
 	struct xfs_sb		*sbp = &mp->m_sb;
 	struct xfs_trans_res	tres;
-	bool			rsvd = (args->attr_filter & XFS_ATTR_ROOT);
+	bool			rsvd;
 	int			error, local;
 	unsigned int		total;
+
+	rsvd = ((args->attr_filter & XFS_ATTR_ROOT) | XFS_ATTR_PARENT) != 0;
 
 	if (XFS_FORCED_SHUTDOWN(dp->i_mount))
 		return -EIO;
