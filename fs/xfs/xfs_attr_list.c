@@ -593,23 +593,19 @@ xfs_attr_put_listent(
 }
 
 /*
- * Generate a list of extended attribute names and optionally
- * also value lengths.  Positive return value follows the XFS
- * convention of being an error, zero or negative return code
- * is the length of the buffer returned (negated), indicating
- * success.
+ * Initializes an xfs_attr_list_context suitable for
+ * use by xfs_attr_list
  */
 int
-xfs_attr_list(
-	xfs_inode_t	*dp,
-	char		*buffer,
-	int		bufsize,
-	int		flags,
-	attrlist_cursor_kern_t *cursor)
+xfs_attr_list_context_init(
+	xfs_inode_t			*dp,
+	char				*buffer,
+	int				bufsize,
+	int				flags,
+	struct attrlist_cursor_kern	*cursor,
+	struct xfs_attr_list_context	*context)
 {
-	xfs_attr_list_context_t context;
 	struct attrlist *alist;
-	int error;
 
 	/*
 	 * Validate the cursor.
@@ -635,20 +631,46 @@ xfs_attr_list(
 	/*
 	 * Initialize the output buffer.
 	 */
-	memset(&context, 0, sizeof(context));
-	context.dp = dp;
-	context.cursor = cursor;
-	context.resynch = 1;
-	context.flags = flags;
-	context.alist = buffer;
-	context.bufsize = (bufsize & ~(sizeof(int)-1));  /* align */
-	context.firstu = context.bufsize;
-	context.put_listent = xfs_attr_put_listent;
+	memset(context, 0, sizeof(xfs_attr_list_context_t));
+	context->dp = dp;
+	context->cursor = cursor;
+	context->resynch = 1;
+	context->flags = flags;
+	context->alist = buffer;
+	context->bufsize = (bufsize & ~(sizeof(int)-1));  /* align */
+	context->firstu = context->bufsize;
+	context->put_listent = xfs_attr_put_listent;
 
-	alist = (struct attrlist *)context.alist;
+	alist = (struct attrlist *)context->alist;
 	alist->al_count = 0;
 	alist->al_more = 0;
-	alist->al_offset[0] = context.bufsize;
+	alist->al_offset[0] = context->bufsize;
+
+	return 0;
+}
+
+/*
+ * Generate a list of extended attribute names and optionally
+ * also value lengths.  Positive return value follows the XFS
+ * convention of being an error, zero or negative return code
+ * is the length of the buffer returned (negated), indicating
+ * success.
+ */
+int
+xfs_attr_list(
+	xfs_inode_t		*dp,
+	char			*buffer,
+	int			bufsize,
+	int			flags,
+	attrlist_cursor_kern_t	*cursor)
+{
+	xfs_attr_list_context_t context;
+	int			error;
+
+	error = xfs_attr_list_context_init(dp, buffer, bufsize, flags,
+			cursor, &context);
+	if (error)
+		return error;
 
 	error = xfs_attr_list_int(&context);
 	ASSERT(error <= 0);
