@@ -57,18 +57,26 @@ enum xfs_dacmp {
  * calling function to roll the transaction, and then recall the subroutine to
  * finish the operation.  The enum is then used by the subroutine to jump back
  * to where it was and resume executing where it left off.
+ *
+ * During a delayed operation, this is stored in the xfs_da_args of an
+ * xfs_attr_item to preserve the value between transaction handling.  The first
+ * call to xfs_attr_finish_item gets a zeroed xfs_da_args which will need to be
+ * initialized.  We then set the state to a non zero value to indicate that this
+ * has been done, and does not need to be done again on subsequent re-calls
  */
 enum xfs_delattr_state {
-	XFS_DAS_RM_SHRINK,	/* We are shrinking the tree */
-	XFS_DAS_RMTVAL_REMOVE,	/* We are removing remote value blocks */
-	XFS_DAS_ADD_LEAF,	/* We are adding a leaf attr */
-	XFS_DAS_FOUND_LBLK,	/* We found leaf blk for attr */
-	XFS_DAS_LEAF_TO_NODE,	/* Converted leaf to node */
-	XFS_DAS_FOUND_NBLK,	/* We found node blk for attr */
-	XFS_DAS_ALLOC_LEAF,	/* We are allocating leaf blocks */
-	XFS_DAS_FLIP_LFLAG,	/* Flipped leaf INCOMPLETE attr flag */
-	XFS_DAS_ALLOC_NODE,	/* We are allocating node blocks */
-	XFS_DAS_FLIP_NFLAG,	/* Flipped node INCOMPLETE attr flag */
+				     /* Zero is uninitalized */
+	XFS_DAS_INIT		= 1, /* Context has been initialized */
+	XFS_DAS_RM_SHRINK,	     /* We are shrinking the tree */
+	XFS_DAS_RMTVAL_REMOVE,	     /* We are removing remote value blocks */
+	XFS_DAS_ADD_LEAF,	     /* We are adding a leaf attr */
+	XFS_DAS_FOUND_LBLK,	     /* We found leaf blk for attr */
+	XFS_DAS_LEAF_TO_NODE,	     /* Converted leaf to node */
+	XFS_DAS_FOUND_NBLK,	     /* We found node blk for attr */
+	XFS_DAS_ALLOC_LEAF,	     /* We are allocating leaf blocks */
+	XFS_DAS_FLIP_LFLAG,	     /* Flipped leaf INCOMPLETE attr flag */
+	XFS_DAS_ALLOC_NODE,	     /* We are allocating node blocks */
+	XFS_DAS_FLIP_NFLAG,	     /* Flipped node INCOMPLETE attr flag */
 };
 
 /*
