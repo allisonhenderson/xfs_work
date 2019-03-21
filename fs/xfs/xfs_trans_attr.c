@@ -81,11 +81,11 @@ xfs_trans_attr(
 		case XFS_ATTR_OP_FLAGS_SET:
 			args->op_flags |= XFS_DA_OP_ADDNAME;
 			error = xfs_attr_set_args(args, leaf_bp,
-					(xfs_attr_state_t *)state, false);
+					(xfs_attr_state_t *)state);
 			break;
 		case XFS_ATTR_OP_FLAGS_REMOVE:
 			ASSERT(XFS_IFORK_Q((args->dp)));
-			error = xfs_attr_remove_args(args, false);
+			error = xfs_attr_remove_args(args);
 			break;
 		default:
 			error = -EFSCORRUPTED;
