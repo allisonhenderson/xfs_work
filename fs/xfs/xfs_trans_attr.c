@@ -201,7 +201,7 @@ xfs_attr_finish_item(
 		/* Only need to initialize args context once */
 		name_value = ((char *)attr) + sizeof(struct xfs_attr_item);
 		error = xfs_attr_args_init(args, attr->xattri_ip, name_value,
-						attr->xattri_flags);
+					attr->xattri_name_len, attr->xattri_flags);
 		if (error)
 			goto out;
 
