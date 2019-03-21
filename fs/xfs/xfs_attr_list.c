@@ -571,6 +571,9 @@ xfs_attr_put_listent(
 	if (((context->flags & ATTR_ROOT) == 0) !=
 	    ((flags & XFS_ATTR_ROOT) == 0))
 		return;
+	if (((context->flags & ATTR_PARENT) == 0) !=
+	    ((flags & XFS_ATTR_PARENT) == 0))
+		return;
 
 	arraytop = sizeof(*alist) +
 			context->count * sizeof(alist->al_offset[0]);
