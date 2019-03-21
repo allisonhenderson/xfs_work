@@ -67,10 +67,11 @@ int
 xfs_trans_attr(
 	struct xfs_da_args		*args,
 	struct xfs_attrd_log_item	*attrdp,
+	struct xfs_buf			**leaf_bp,
+	void				*state,
 	uint32_t			op_flags)
 {
 	int				error;
-	struct xfs_buf			*leaf_bp = NULL;
 
 	error = xfs_qm_dqattach_locked(args->dp, 0);
 	if (error)
@@ -79,7 +80,8 @@ xfs_trans_attr(
 	switch (op_flags) {
 		case XFS_ATTR_OP_FLAGS_SET:
 			args->op_flags |= XFS_DA_OP_ADDNAME;
-			error = xfs_attr_set_args(args,&leaf_bp, false);
+			error = xfs_attr_set_args(args, leaf_bp,
+					(xfs_attr_state_t *)state, false);
 			break;
 		case XFS_ATTR_OP_FLAGS_REMOVE:
 			ASSERT(XFS_IFORK_Q((args->dp)));
@@ -87,11 +89,6 @@ xfs_trans_attr(
 			break;
 		default:
 			error = -EFSCORRUPTED;
-	}
-
-	if (error) {
-		if (leaf_bp)
-			xfs_trans_brelse(args->trans, leaf_bp);
 	}
 
 	/*
@@ -195,27 +192,39 @@ xfs_attr_finish_item(
 	char				*name_value;
 	int				error;
 	int				local;
-	struct xfs_da_args		args;
+	struct xfs_da_args		*args;
 
 	attr = container_of(item, struct xfs_attr_item, xattri_list);
-	name_value = ((char *)attr) + sizeof(struct xfs_attr_item);
+	args = &attr->xattri_args;
 
-	error = xfs_attr_args_init(&args, attr->xattri_ip, name_value,
-					attr->xattri_flags);
-	if (error)
-		goto out;
+	if (attr->xattri_state == 0) {
+		/* Only need to initialize args context once */
+		name_value = ((char *)attr) + sizeof(struct xfs_attr_item);
+		error = xfs_attr_args_init(args, attr->xattri_ip, name_value,
+						attr->xattri_flags);
+		if (error)
+			goto out;
 
-	args.hashval = xfs_da_hashname(args.name, args.namelen);
-	args.value = &name_value[attr->xattri_name_len];
-	args.valuelen = attr->xattri_value_len;
-	args.op_flags = XFS_DA_OP_OKNOENT;
-	args.total = xfs_attr_calc_size(&args, &local);
-	args.trans = tp;
+		args->hashval = xfs_da_hashname(args->name, args->namelen);
+		args->value = &name_value[attr->xattri_name_len];
+		args->valuelen = attr->xattri_value_len;
+		args->op_flags = XFS_DA_OP_OKNOENT;
+		args->total = xfs_attr_calc_size(args, &local);
+		attr->xattri_leaf_bp = NULL;
+	}
 
-	error = xfs_trans_attr(&args, done_item,
-			attr->xattri_op_flags);
+	/*
+	 * Always reset trans after EAGAIN cycle
+	 * since the transaction is new
+	 */
+	args->trans = tp;
+
+	error = xfs_trans_attr(args, done_item, &attr->xattri_leaf_bp,
+			&attr->xattri_state, attr->xattri_op_flags);
 out:
-	kmem_free(attr);
+	if (error != -EAGAIN)
+		kmem_free(attr);
+
 	return error;
 }
 
