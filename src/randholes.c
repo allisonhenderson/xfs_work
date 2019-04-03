@@ -384,7 +384,7 @@ get_alignment(char *filename, int fd)
 static int
 realtime_setup(char *filename, int fd)
 {
-	struct fsxattr rtattr;
+	struct fsxattr_t rtattr;
 
 	(void) memset(&rtattr, 0, sizeof rtattr);
 	if (xfscntl(filename, fd, FSGETXATTR, &rtattr) < 0) {
