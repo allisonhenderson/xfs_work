@@ -75,6 +75,8 @@ xfs_trans_attr(
 {
 	int				error;
 
+	my_debug("Enter args->trans:%p", args->trans);
+
 	error = xfs_qm_dqattach_locked(args->dp, 0);
 	if (error)
 		return error;
@@ -86,19 +88,25 @@ xfs_trans_attr(
 
 	switch (op_flags) {
 		case XFS_ATTR_OP_FLAGS_SET:
+			my_debug("XFS_ATTR_OP_FLAGS_SET");
 			args->op_flags |= XFS_DA_OP_ADDNAME;
 			error = xfs_attr_set_args(args, leaf_bp,
 					(xfs_attr_state_t *)state);
 			break;
 		case XFS_ATTR_OP_FLAGS_REMOVE:
+			my_debug("XFS_ATTR_OP_FLAGS_REMOVE");
 			ASSERT(XFS_IFORK_Q((args->dp)));
 			error = xfs_attr_remove_args(args);
 			break;
 		default:
+			my_debug("DEFAULT");
 			error = -EFSCORRUPTED;
 	}
 
+	my_debug("OP DONE");
+
 out:
+	my_debug("out");
 	/*
 	 * Mark the transaction dirty, even on error. This ensures the
 	 * transaction is aborted, which:
@@ -106,14 +114,16 @@ out:
 	 * 1.) releases the ATTRI and frees the ATTRD
 	 * 2.) shuts down the filesystem
 	 */
+	my_debug("args->trans: %p", args->trans);
 	args->trans->t_flags |= XFS_TRANS_DIRTY;
 	set_bit(XFS_LI_DIRTY, &attrdp->item.li_flags);
 
-	attrdp->attrip->name = (void *)args->name;
+	attrdp->attrip->name = (void *)args->name; 
 	attrdp->attrip->value = (void *)args->value;
 	attrdp->attrip->name_len = args->namelen;
 	attrdp->attrip->value_len = args->valuelen;
 
+	my_debug("return: %d", error);
 	return error;
 }
 

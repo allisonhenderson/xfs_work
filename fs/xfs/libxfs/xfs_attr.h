@@ -83,6 +83,7 @@ typedef struct attrlist_ent {	/* data from attr_list() */
 typedef enum {
 	XFS_ATTR_STATE1 = 1,
 	XFS_ATTR_STATE2 = 2,
+	XFS_ATTR_STATE3 = 3,
 } xfs_attr_state_t;
 
 /*

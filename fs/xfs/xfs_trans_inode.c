@@ -88,6 +88,25 @@ xfs_trans_log_inode(
 {
 	struct inode	*inode = VFS_I(ip);
 
+       my_debug("Enter");
+
+       my_debug("Enter trans:%p inode:%llu, flags: %s%s%s%s%s%s%s%s%s%s%s (0x%X)", tp, ip->i_ino, 
+                flags & XFS_ILOG_CORE ? "XFS_ILOG_CORE ":"",
+                flags & XFS_ILOG_DDATA ? "XFS_ILOG_DDATA ":"",
+                flags & XFS_ILOG_DEXT ? "XFS_ILOG_DEXT ":"",
+                flags & XFS_ILOG_DBROOT ? "XFS_ILOG_DBROOT ":"",
+                flags & XFS_ILOG_DEV ? "XFS_ILOG_DEV ":"",
+                flags & XFS_ILOG_UUID ? "XFS_ILOG_UUID ":"",
+                flags & XFS_ILOG_ADATA ? "XFS_ILOG_ADATA ":"",
+                flags & XFS_ILOG_AEXT ? "XFS_ILOG_AEXT ":"",
+                flags & XFS_ILOG_ABROOT ? "XFS_ILOG_ABROOT ":"",
+                flags & XFS_ILOG_DOWNER ? "XFS_ILOG_DOWNER ":"",
+                flags & XFS_ILOG_AOWNER ? "XFS_ILOG_AOWNER":"",
+                flags
+        );
+
+
+
 	ASSERT(ip->i_itemp != NULL);
 	ASSERT(xfs_isilocked(ip, XFS_ILOCK_EXCL));
 
@@ -138,6 +157,7 @@ xfs_trans_log_inode(
 	 */
 	flags |= ip->i_itemp->ili_last_fields;
 	ip->i_itemp->ili_fields |= flags;
+	my_debug("Exit");
 }
 
 int
@@ -147,9 +167,11 @@ xfs_trans_roll_inode(
 {
 	int			error;
 
+	my_debug("Enter inode:%llu", ip->i_ino);
 	xfs_trans_log_inode(*tpp, ip, XFS_ILOG_CORE);
 	error = xfs_trans_roll(tpp);
 	if (!error)
 		xfs_trans_ijoin(*tpp, ip, 0);
+	my_debug("Exit");
 	return error;
 }

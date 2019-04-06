@@ -1053,42 +1053,88 @@ xfs_bmap_set_attrforkoff(
  * Convert inode from non-attributed to attributed.
  * Must not be in a transaction, ip must not be locked.
  */
-int						/* error code */
+int                                             /* error code */
 xfs_bmap_add_attrfork(
-	xfs_inode_t		*ip,		/* incore inode pointer */
-	int			size,		/* space new attribute needs */
-	int			rsvd)		/* xact may use reserved blks */
+        xfs_inode_t             *ip,            /* incore inode pointer */
+        int                     size,           /* space new attribute needs */
+        int                     rsvd)           /* xact may use reserved blks */
 {
-	xfs_mount_t		*mp;		/* mount structure */
-	xfs_trans_t		*tp;		/* transaction pointer */
-	int			blks;		/* space reservation */
+        xfs_mount_t             *mp;            /* mount structure */
+        xfs_trans_t             *tp;            /* transaction pointer */
+        int                     blks;           /* space reservation */
+        int                     error;          /* error return value */
+
+	ASSERT(XFS_IFORK_Q(ip) == 0);
+
+        mp = ip->i_mount;
+        ASSERT(!XFS_NOT_DQATTACHED(mp, ip));
+
+        blks = XFS_ADDAFORK_SPACE_RES(mp);
+
+        error = xfs_trans_alloc(mp, &M_RES(mp)->tr_addafork, blks, 0,
+                        rsvd ? XFS_TRANS_RESERVE : 0, &tp);
+        if (error)
+                return error;
+
+        xfs_ilock(ip, XFS_ILOCK_EXCL);
+        error = xfs_trans_reserve_quota_nblks(tp, ip, blks, 0, rsvd ?
+                        XFS_QMOPT_RES_REGBLKS | XFS_QMOPT_FORCE_RES :
+                        XFS_QMOPT_RES_REGBLKS);
+        if (error)
+                goto trans_cancel;
+        if (XFS_IFORK_Q(ip))
+                goto trans_cancel;
+        if (ip->i_d.di_anextents != 0) {
+                error = -EFSCORRUPTED;
+                goto trans_cancel;
+        }
+
+        xfs_trans_ijoin(tp, ip, 0);
+        xfs_trans_log_inode(tp, ip, XFS_ILOG_CORE);
+
+	error = xfs_bmap_add_attrfork_locked(tp, ip, size);
+	if (error)
+		goto trans_cancel;
+
+        error = xfs_trans_commit(tp);
+        xfs_iunlock(ip, XFS_ILOCK_EXCL);
+        return error;
+
+trans_cancel:
+        xfs_trans_cancel(tp);
+        xfs_iunlock(ip, XFS_ILOCK_EXCL);
+        return error;
+
+}
+
+/*
+ * Convert inode from non-attributed to attributed.
+ * Must not be in a transaction, ip must not be locked.
+ */
+int						/* error code */
+xfs_bmap_add_attrfork_locked(
+	struct xfs_trans	*tp,		/* transaction pointer */
+	struct xfs_inode	*ip,		/* incore inode pointer */
+	int			size)		/* space new attribute needs */
+{
+	struct xfs_mount	*mp;		/* mount structure */
 	int			version = 1;	/* superblock attr version */
 	int			logflags;	/* logging flags */
-	int			error;		/* error return value */
+	int			error = 0;	/* error return value */
+
+	my_debug("Enter");
 
 	ASSERT(XFS_IFORK_Q(ip) == 0);
 
 	mp = ip->i_mount;
 	ASSERT(!XFS_NOT_DQATTACHED(mp, ip));
 
-	blks = XFS_ADDAFORK_SPACE_RES(mp);
-
-	error = xfs_trans_alloc(mp, &M_RES(mp)->tr_addafork, blks, 0,
-			rsvd ? XFS_TRANS_RESERVE : 0, &tp);
-	if (error)
-		return error;
-
-	xfs_ilock(ip, XFS_ILOCK_EXCL);
-	error = xfs_trans_reserve_quota_nblks(tp, ip, blks, 0, rsvd ?
-			XFS_QMOPT_RES_REGBLKS | XFS_QMOPT_FORCE_RES :
-			XFS_QMOPT_RES_REGBLKS);
-	if (error)
-		goto trans_cancel;
-	if (XFS_IFORK_Q(ip))
-		goto trans_cancel;
+	if (XFS_IFORK_Q(ip)) {
+		goto out;
+	}
 	if (ip->i_d.di_anextents != 0) {
 		error = -EFSCORRUPTED;
-		goto trans_cancel;
+		goto out;
 	}
 	if (ip->i_d.di_aformat != XFS_DINODE_FMT_EXTENTS) {
 		/*
@@ -1098,11 +1144,9 @@ xfs_bmap_add_attrfork(
 		ip->i_d.di_aformat = XFS_DINODE_FMT_EXTENTS;
 	}
 
-	xfs_trans_ijoin(tp, ip, 0);
-	xfs_trans_log_inode(tp, ip, XFS_ILOG_CORE);
 	error = xfs_bmap_set_attrforkoff(ip, size, &version);
 	if (error)
-		goto trans_cancel;
+		goto out;
 	ASSERT(ip->i_afp == NULL);
 	ip->i_afp = kmem_zone_zalloc(xfs_ifork_zone, KM_SLEEP);
 	ip->i_afp->if_flags = XFS_IFEXTENTS;
@@ -1124,7 +1168,7 @@ xfs_bmap_add_attrfork(
 	if (logflags)
 		xfs_trans_log_inode(tp, ip, logflags);
 	if (error)
-		goto trans_cancel;
+		goto out;
 	if (!xfs_sb_version_hasattr(&mp->m_sb) ||
 	   (!xfs_sb_version_hasattr2(&mp->m_sb) && version == 2)) {
 		bool log_sb = false;
@@ -1143,14 +1187,10 @@ xfs_bmap_add_attrfork(
 			xfs_log_sb(tp);
 	}
 
-	error = xfs_trans_commit(tp);
-	xfs_iunlock(ip, XFS_ILOCK_EXCL);
+out:
+	my_debug("Exit: %d", error);
 	return error;
 
-trans_cancel:
-	xfs_trans_cancel(tp);
-	xfs_iunlock(ip, XFS_ILOCK_EXCL);
-	return error;
 }
 
 /*

@@ -206,6 +206,8 @@ xfs_attr_try_sf_addname(
 	struct xfs_mount	*mp = dp->i_mount;
 	int			error, error2;
 
+	my_debug("Enter args->trans:%p", args->trans);
+
 	error = xfs_attr_shortform_addname(args);
 	if (error == -ENOSPC)
 		return error;
@@ -220,8 +222,9 @@ xfs_attr_try_sf_addname(
 	if (mp->m_flags & XFS_MOUNT_WSYNC)
 		xfs_trans_set_sync(args->trans);
 
-	error2 = xfs_trans_commit(args->trans);
-	args->trans = NULL;
+//	error2 = xfs_trans_commit(args->trans);
+//	args->trans = NULL;
+	my_debug("Exit: %d", error ? error : error2);
 	return error ? error : error2;
 }
 
@@ -237,12 +240,39 @@ xfs_attr_set_args(
 	struct xfs_inode	*dp = args->dp;
 	int			error = 0;
 
+	my_debug("Enter args->trans:%p state:%d", args->trans, *state);
+
 	switch (*state) {
 	case (XFS_ATTR_STATE1):
 		goto state1;
 	case (XFS_ATTR_STATE2):
 		goto state2;
+	case (XFS_ATTR_STATE3):
+		goto state3;
 	}
+
+        /*
+         * Newly created inodes may not have attribute forks,
+	 * so add one if needed.
+         */
+        if (XFS_IFORK_Q(dp) == 0) {
+                int sf_size = sizeof(xfs_attr_sf_hdr_t) +
+                        XFS_ATTR_SF_ENTSIZE_BYNAME(args->namelen,
+						   args->valuelen);
+
+                error = xfs_bmap_add_attrfork_locked(args->trans, dp, sf_size);
+                if (error) {
+			my_debug("Exit: %d", error);
+                        return error;
+		}
+        }
+
+       *state = XFS_ATTR_STATE1;
+       my_debug("Exit: %d", error);
+       return -EAGAIN;
+
+state1:
+	my_debug("args->trans:%p", args->trans);
 
 	/*
 	 * If the attribute list is non-existent or a shortform list,
@@ -261,19 +291,24 @@ xfs_attr_set_args(
 		 * Try to add the attr to the attribute list in the inode.
 		 */
 		error = xfs_attr_try_sf_addname(dp, args);
-		if (error != -ENOSPC)
+		if (error != -ENOSPC) {
+			my_debug("Exit: %d", error);
 			return error;
+		}
 
-		*state = XFS_ATTR_STATE1;
+		*state = XFS_ATTR_STATE2;
+		my_debug("Exit: %d", error);
 		return -EAGAIN;
-state1:
+state2:
 		/*
 		 * It won't fit in the shortform, transform to a leaf block.
 		 * GROT: another possible req'mt for a double-split btree op.
 		 */
 		error = xfs_attr_shortform_to_leaf(args, leaf_bp);
-		if (error)
+		if (error) {
+			my_debug("Exit: %d", error);
 			return error;
+		}
 
 		/*
 		 * Prevent the leaf buffer from being unlocked so that a
@@ -282,9 +317,10 @@ state1:
 		 */
 		xfs_trans_bhold(args->trans, *leaf_bp);
 
-		*state = XFS_ATTR_STATE2;
+		*state = XFS_ATTR_STATE3;
+		my_debug("Exit: %d", error);
 		return -EAGAIN;
-state2:
+state3:
 		if (*leaf_bp != NULL)
 			xfs_trans_brelse(args->trans, *leaf_bp);
 	}
@@ -293,6 +329,7 @@ state2:
 		error = xfs_attr_leaf_addname(args);
 	else
 		error = xfs_attr_node_addname(args);
+	my_debug("Exit: %d", error);
 	return error;
 }
 
