@@ -178,7 +178,7 @@ int xfs_attr_set(struct xfs_inode *dp, const unsigned char *name,
 		 size_t namelen, unsigned char *value, int valuelen,
 		 int flags);
 int xfs_attr_set_args(struct xfs_da_args *args, struct xfs_buf **leaf_bp,
-		 bool roll_trans);
+		 enum xfs_attr_state *state, bool roll_trans);
 int xfs_attr_remove(struct xfs_inode *dp, const unsigned char *name,
 		    size_t namelen, int flags);
 int xfs_has_attr(struct xfs_da_args *args);
