@@ -49,10 +49,10 @@ void	xfs_attr_fork_remove(struct xfs_inode *ip, struct xfs_trans *tp);
  */
 int	xfs_attr3_leaf_to_node(struct xfs_da_args *args);
 int	xfs_attr3_leaf_to_shortform(struct xfs_buf *bp,
-				   struct xfs_da_args *args, int forkoff);
-int	xfs_attr3_leaf_clearflag(struct xfs_da_args *args);
-int	xfs_attr3_leaf_setflag(struct xfs_da_args *args);
-int	xfs_attr3_leaf_flipflags(struct xfs_da_args *args);
+			struct xfs_da_args *args, int forkoff);
+int	xfs_attr3_leaf_clearflag(struct xfs_da_args *args, bool roll_trans);
+int	xfs_attr3_leaf_setflag(struct xfs_da_args *args, bool roll_trans);
+int	xfs_attr3_leaf_flipflags(struct xfs_da_args *args, bool roll_trans);
 
 /*
  * Routines used for growing the Btree.
