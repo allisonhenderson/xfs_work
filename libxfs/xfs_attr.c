@@ -46,16 +46,16 @@ STATIC int xfs_attr_shortform_addname(xfs_da_args_t *args);
  * Internal routines when attribute list is one block.
  */
 STATIC int xfs_attr_leaf_get(xfs_da_args_t *args);
-STATIC int xfs_attr_leaf_addname(xfs_da_args_t *args, bool roll_trans);
-STATIC int xfs_attr_leaf_removename(xfs_da_args_t *args, bool roll_trans);
+STATIC int xfs_attr_leaf_addname(xfs_da_args_t *args);
+STATIC int xfs_attr_leaf_removename(xfs_da_args_t *args);
 STATIC int xfs_leaf_has_attr(xfs_da_args_t *args);
 
 /*
  * Internal routines when attribute list is more than one block.
  */
 STATIC int xfs_attr_node_get(xfs_da_args_t *args);
-STATIC int xfs_attr_node_addname(xfs_da_args_t *args, bool roll_trans);
-STATIC int xfs_attr_node_removename(xfs_da_args_t *args, bool roll_trans);
+STATIC int xfs_attr_node_addname(xfs_da_args_t *args);
+STATIC int xfs_attr_node_removename(xfs_da_args_t *args);
 STATIC int xfs_attr_node_hasname(xfs_da_args_t *args);
 STATIC int xfs_attr_fillstate(xfs_da_state_t *state);
 STATIC int xfs_attr_refillstate(xfs_da_state_t *state);
@@ -195,8 +195,7 @@ xfs_attr_calc_size(
 STATIC int
 xfs_attr_try_sf_addname(
 	struct xfs_inode	*dp,
-	struct xfs_da_args	*args,
-	bool			roll_trans)
+	struct xfs_da_args	*args)
 {
 
 	struct xfs_mount	*mp = dp->i_mount;
@@ -216,11 +215,6 @@ xfs_attr_try_sf_addname(
 	if (mp->m_flags & XFS_MOUNT_WSYNC)
 		xfs_trans_set_sync(args->trans);
 
-	if (roll_trans) {
-		error2 = xfs_trans_commit(args->trans);
-		args->trans = NULL;
-	}
-
 	return error ? error : error2;
 }
 
@@ -231,8 +225,7 @@ int
 xfs_attr_set_args(
 	struct xfs_da_args	*args,
 	struct xfs_buf          **leaf_bp,
-	enum xfs_attr_state	*state,
-	bool			roll_trans)
+	enum xfs_attr_state	*state)
 {
 	struct xfs_inode	*dp = args->dp;
 	int			error = 0;
@@ -279,7 +272,7 @@ state1:
 		/*
 		 * Try to add the attr to the attribute list in the inode.
 		 */
-		error = xfs_attr_try_sf_addname(dp, args, roll_trans);
+		error = xfs_attr_try_sf_addname(dp, args);
 		if (error != -ENOSPC)
 			return error;
 
@@ -301,23 +294,6 @@ state2:
 		 */
 		xfs_trans_bhold(args->trans, *leaf_bp);
 
-		if (roll_trans) {
-			error = xfs_defer_finish(&args->trans);
-			if (error)
-				return error;
-
-			/*
-			 * Commit the leaf transformation.  We'll need another
-			 * (linked) transaction to add the new attribute to the
-			 * leaf.
-			 */
-			error = xfs_trans_roll_inode(&args->trans, dp);
-			if (error)
-				return error;
-			xfs_trans_bjoin(args->trans, *leaf_bp);
-			*leaf_bp = NULL;
-		}
-
 		*state = XFS_ATTR_STATE3;
 		return -EAGAIN;
 state3:
@@ -326,9 +302,9 @@ state3:
 	}
 
 	if (xfs_bmap_one_block(dp, XFS_ATTR_FORK))
-		error = xfs_attr_leaf_addname(args, roll_trans);
+		error = xfs_attr_leaf_addname(args);
 	else
-		error = xfs_attr_node_addname(args, roll_trans);
+		error = xfs_attr_node_addname(args);
 	return error;
 }
 
@@ -360,8 +336,7 @@ xfs_has_attr(
  */
 int
 xfs_attr_remove_args(
-	struct xfs_da_args      *args,
-	bool                    roll_trans)
+	struct xfs_da_args	*args)
 {
 	struct xfs_inode	*dp = args->dp;
 	int			error;
@@ -372,9 +347,9 @@ xfs_attr_remove_args(
 		ASSERT(dp->i_afp->if_flags & XFS_IFINLINE);
 		error = xfs_attr_shortform_remove(args);
 	} else if (xfs_bmap_one_block(dp, XFS_ATTR_FORK)) {
-		error = xfs_attr_leaf_removename(args, roll_trans);
+		error = xfs_attr_leaf_removename(args);
 	} else {
-		error = xfs_attr_node_removename(args, roll_trans);
+		error = xfs_attr_node_removename(args);
 	}
 
 	return error;
@@ -715,8 +690,7 @@ xfs_attr_shortform_addname(xfs_da_args_t *args)
  */
 STATIC int
 xfs_attr_leaf_addname(
-	struct xfs_da_args	*args,
-	bool			roll_trans)
+	struct xfs_da_args	*args)
 {
 	struct xfs_inode	*dp;
 	struct xfs_buf		*bp;
@@ -782,35 +756,11 @@ xfs_attr_leaf_addname(
 		if (error)
 			return error;
 
-		if (roll_trans) {
-			error = xfs_defer_finish(&args->trans);
-			if (error)
-				return error;
-
-			/*
-			 * Commit the current trans (including the inode) and
-			 * start a new one.
-			 */
-			error = xfs_trans_roll_inode(&args->trans, dp);
-			if (error)
-				return error;
-		}
-
 		/*
 		 * Fob the whole rest of the problem off on the Btree code.
 		 */
-		error = xfs_attr_node_addname(args, roll_trans);
+		error = xfs_attr_node_addname(args);
 		return error;
-	}
-
-	if (roll_trans) {
-		/*
-		 * Commit the transaction that added the attr name so that
-		 * later routines can manage their own transactions.
-		 */
-		error = xfs_trans_roll_inode(&args->trans, dp);
-		if (error)
-			return error;
 	}
 
 	/*
@@ -820,7 +770,7 @@ xfs_attr_leaf_addname(
 	 * maximum size of a transaction and/or hit a deadlock.
 	 */
 	if (args->rmtblkno > 0) {
-		error = xfs_attr_rmtval_set(args, roll_trans);
+		error = xfs_attr_rmtval_set(args);
 		if (error)
 			return error;
 	}
@@ -836,7 +786,7 @@ xfs_attr_leaf_addname(
 		 * In a separate transaction, set the incomplete flag on the
 		 * "old" attr and clear the incomplete flag on the "new" attr.
 		 */
-		error = xfs_attr3_leaf_flipflags(args, roll_trans);
+		error = xfs_attr3_leaf_flipflags(args);
 		if (error)
 			return error;
 
@@ -850,7 +800,7 @@ xfs_attr_leaf_addname(
 		args->rmtblkcnt = args->rmtblkcnt2;
 		args->rmtvaluelen = args->rmtvaluelen2;
 		if (args->rmtblkno) {
-			error = xfs_attr_rmtval_remove(args, roll_trans);
+			error = xfs_attr_rmtval_remove(args);
 			if (error)
 				return error;
 		}
@@ -874,25 +824,13 @@ xfs_attr_leaf_addname(
 			/* bp is gone due to xfs_da_shrink_inode */
 			if (error)
 				return error;
-
-			if (roll_trans) {
-				error = xfs_defer_finish(&args->trans);
-				if (error)
-					return error;
-			}
 		}
-
-		/*
-		 * Commit the remove and start the next trans in series.
-		 */
-		if (roll_trans)
-			error = xfs_trans_roll_inode(&args->trans, dp);
 
 	} else if (args->rmtblkno > 0) {
 		/*
 		 * Added a "remote" value, just clear the incomplete flag.
 		 */
-		error = xfs_attr3_leaf_clearflag(args, roll_trans);
+		error = xfs_attr3_leaf_clearflag(args);
 	}
 	return error;
 }
@@ -928,8 +866,7 @@ xfs_leaf_has_attr(
  */
 STATIC int
 xfs_attr_leaf_removename(
-	struct xfs_da_args	*args,
-	bool roll_trans)
+	struct xfs_da_args	*args)
 {
 	struct xfs_inode	*dp;
 	struct xfs_buf		*bp;
@@ -962,12 +899,6 @@ xfs_attr_leaf_removename(
 		/* bp is gone due to xfs_da_shrink_inode */
 		if (error)
 			return error;
-
-		if (roll_trans) {
-			error = xfs_defer_finish(&args->trans);
-			if (error)
-				return error;
-		}
 	}
 	return 0;
 }
@@ -1020,8 +951,7 @@ xfs_attr_leaf_get(xfs_da_args_t *args)
  */
 STATIC int
 xfs_attr_node_addname(
-	struct xfs_da_args	*args,
-	bool			roll_trans)
+	struct xfs_da_args	*args)
 {
 	struct xfs_da_state	*state;
 	struct xfs_da_state_blk	*blk;
@@ -1090,20 +1020,6 @@ restart:
 			if (error)
 				goto out;
 
-			if (roll_trans) {
-				error = xfs_defer_finish(&args->trans);
-				if (error)
-					goto out;
-
-				/*
-				 * Commit the node conversion and start the next
-				 * trans in the chain.
-				 */
-				error = xfs_trans_roll_inode(&args->trans, dp);
-				if (error)
-					goto out;
-			}
-
 			goto restart;
 		}
 
@@ -1116,12 +1032,6 @@ restart:
 		error = xfs_da3_split(state);
 		if (error)
 			goto out;
-
-		if (roll_trans) {
-			error = xfs_defer_finish(&args->trans);
-			if (error)
-				goto out;
-		}
 
 	} else {
 		/*
@@ -1138,23 +1048,13 @@ restart:
 	state = NULL;
 
 	/*
-	 * Commit the leaf addition or btree split and start the next
-	 * trans in the chain.
-	 */
-	if (roll_trans) {
-		error = xfs_trans_roll_inode(&args->trans, dp);
-		if (error)
-			goto out;
-	}
-
-	/*
 	 * If there was an out-of-line value, allocate the blocks we
 	 * identified for its storage and copy the value.  This is done
 	 * after we create the attribute so that we don't overflow the
 	 * maximum size of a transaction and/or hit a deadlock.
 	 */
 	if (args->rmtblkno > 0) {
-		error = xfs_attr_rmtval_set(args, roll_trans);
+		error = xfs_attr_rmtval_set(args);
 		if (error)
 			return error;
 	}
@@ -1170,7 +1070,7 @@ restart:
 		 * In a separate transaction, set the incomplete flag on the
 		 * "old" attr and clear the incomplete flag on the "new" attr.
 		 */
-		error = xfs_attr3_leaf_flipflags(args, roll_trans);
+		error = xfs_attr3_leaf_flipflags(args);
 		if (error)
 			goto out;
 
@@ -1184,7 +1084,7 @@ restart:
 		args->rmtblkcnt = args->rmtblkcnt2;
 		args->rmtvaluelen = args->rmtvaluelen2;
 		if (args->rmtblkno) {
-			error = xfs_attr_rmtval_remove(args, roll_trans);
+			error = xfs_attr_rmtval_remove(args);
 			if (error)
 				return error;
 		}
@@ -1218,11 +1118,6 @@ restart:
 			error = xfs_da3_join(state);
 			if (error)
 				goto out;
-			if (roll_trans) {
-				error = xfs_defer_finish(&args->trans);
-				if (error)
-					goto out;
-			}
 		}
 
 		/*
@@ -1236,7 +1131,7 @@ restart:
 		/*
 		 * Added a "remote" value, just clear the incomplete flag.
 		 */
-		error = xfs_attr3_leaf_clearflag(args, roll_trans);
+		error = xfs_attr3_leaf_clearflag(args);
 		if (error)
 			goto out;
 	}
@@ -1289,8 +1184,7 @@ xfs_attr_node_hasname(
  */
 STATIC int
 xfs_attr_node_removename(
-	struct xfs_da_args	*args,
-	bool			roll_trans)
+	struct xfs_da_args	*args)
 {
 	struct xfs_da_state	*state;
 	struct xfs_da_state_blk	*blk;
@@ -1340,10 +1234,10 @@ xfs_attr_node_removename(
 		 * Mark the attribute as INCOMPLETE, then bunmapi() the
 		 * remote value.
 		 */
-		error = xfs_attr3_leaf_setflag(args, roll_trans);
+		error = xfs_attr3_leaf_setflag(args);
 		if (error)
 			goto out;
-		error = xfs_attr_rmtval_remove(args, roll_trans);
+		error = xfs_attr_rmtval_remove(args);
 		if (error)
 			goto out;
 
@@ -1371,19 +1265,6 @@ xfs_attr_node_removename(
 		error = xfs_da3_join(state);
 		if (error)
 			goto out;
-
-		if (roll_trans) {
-			error = xfs_defer_finish(&args->trans);
-			if (error)
-				goto out;
-			/*
-			 * Commit the Btree join operation and start
-			 * a new trans.
-			 */
-			error = xfs_trans_roll_inode(&args->trans, dp);
-			if (error)
-				goto out;
-		}
 	}
 
 	/*
@@ -1407,11 +1288,6 @@ xfs_attr_node_removename(
 			if (error)
 				goto out;
 
-			if (roll_trans) {
-				error = xfs_defer_finish(&args->trans);
-				if (error)
-					goto out;
-			}
 		} else
 			xfs_trans_brelse(args->trans, bp);
 	}
