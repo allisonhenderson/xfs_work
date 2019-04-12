@@ -74,6 +74,13 @@ typedef struct attrlist_ent {	/* data from attr_list() */
 	char	a_name[1];	/* attr name (NULL terminated) */
 } attrlist_ent_t;
 
+/* Attr state machine types */
+enum xfs_attr_state {
+	XFS_ATTR_STATE1 = 1,
+	XFS_ATTR_STATE2 = 2,
+	XFS_ATTR_STATE3 = 3,
+};
+
 /*
  * List of attrs to commit later.
  */
@@ -85,7 +92,16 @@ struct xfs_attr_item {
 	void		  *xattri_name;	      /* attr name */
 	uint32_t	  xattri_name_len;    /* length of name */
 	uint32_t	  xattri_flags;       /* attr flags */
-	struct list_head  xattri_list;
+
+	/*
+	 * Delayed attr parameters that need to remain instantiated
+	 * across transaction rolls during the defer finish
+	 */
+	struct xfs_buf		*xattri_leaf_bp;  /* Leaf buf to release */
+	enum xfs_attr_state	xattri_state;	  /* state machine marker */
+	struct xfs_da_args	xattri_args;	  /* args context */
+
+	struct list_head	xattri_list;
 
 	/*
 	 * A byte array follows the header containing the file name and
