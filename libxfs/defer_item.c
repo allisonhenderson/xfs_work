@@ -16,10 +16,13 @@
 #include "xfs_trans.h"
 #include "xfs_bmap.h"
 #include "xfs_alloc.h"
+#include "xfs_attr_item.h"
 #include "xfs_rmap.h"
 #include "xfs_refcount.h"
-#include "xfs_bmap.h"
 #include "xfs_inode.h"
+#include "xfs_da_format.h"
+#include "xfs_da_btree.h"
+#include "xfs_attr.h"
 
 /* Dummy defer item ops, since we don't do logging. */
 
@@ -115,6 +118,158 @@ const struct xfs_defer_op_type xfs_extent_free_defer_type = {
 	.create_done	= xfs_extent_free_create_done,
 	.finish_item	= xfs_extent_free_finish_item,
 	.cancel_item	= xfs_extent_free_cancel_item,
+};
+
+int
+xfs_trans_attr(
+	struct xfs_da_args		*args,
+	struct xfs_attrd_log_item	*attrdp,
+	uint32_t			op_flags)
+{
+	int				error;
+	struct xfs_buf			*leaf_bp = NULL;
+
+	error = xfs_qm_dqattach_locked(args->dp, 0);
+	if (error)
+		return error;
+
+	switch (op_flags) {
+	case XFS_ATTR_OP_FLAGS_SET:
+		args->op_flags |= XFS_DA_OP_ADDNAME;
+		error = xfs_attr_set_args(args, &leaf_bp, false);
+		break;
+	case XFS_ATTR_OP_FLAGS_REMOVE:
+		ASSERT(XFS_IFORK_Q((args->dp)));
+		error = xfs_attr_remove_args(args, false);
+		break;
+	default:
+		error = -EFSCORRUPTED;
+	}
+
+	if (error) {
+		if (leaf_bp)
+			xfs_trans_brelse(args->trans, leaf_bp);
+	}
+
+	/*
+	 * Mark the transaction dirty, even on error. This ensures the
+	 * transaction is aborted, which:
+	 *
+	 * 1.) releases the ATTRI and frees the ATTRD
+	 * 2.) shuts down the filesystem
+	 */
+	args->trans->t_flags |= XFS_TRANS_DIRTY;
+	set_bit(XFS_LI_DIRTY, &attrdp->item.li_flags);
+
+	attrdp->attrip->name = (void *)args->name;
+	attrdp->attrip->value = (void *)args->value;
+	attrdp->attrip->name_len = args->namelen;
+	attrdp->attrip->value_len = args->valuelen;
+
+	return error;
+}
+
+static int
+xfs_attr_diff_items(
+	void				*priv,
+	struct list_head		*a,
+	struct list_head		*b)
+{
+	return 0;
+}
+
+/* Get an ATTRI. */
+STATIC void *
+xfs_attr_create_intent(
+	struct xfs_trans		*tp,
+	unsigned int			count)
+{
+	return NULL;
+}
+
+/* Log an attr to the intent item. */
+STATIC void
+xfs_attr_log_item(
+	struct xfs_trans		*tp,
+	void				*intent,
+	struct list_head		*item)
+{
+}
+
+/* Get an ATTRD so we can process all the attrs. */
+STATIC void *
+xfs_attr_create_done(
+	struct xfs_trans		*tp,
+	void				*intent,
+	unsigned int			count)
+{
+	return NULL;
+}
+
+/* Process an attr. */
+STATIC int
+xfs_attr_finish_item(
+	struct xfs_trans		*tp,
+	struct list_head		*item,
+	void				*done_item,
+	void				**state)
+{
+	struct xfs_attr_item		*attr;
+	unsigned char			*name_value;
+	int				error;
+	int				local;
+	struct xfs_da_args		args;
+
+	attr = container_of(item, struct xfs_attr_item, xattri_list);
+	name_value = ((unsigned char *)attr) + sizeof(struct xfs_attr_item);
+
+	error = xfs_attr_args_init(&args, attr->xattri_ip, name_value,
+				   attr->xattri_name_len, attr->xattri_flags);
+	if (error)
+		goto out;
+
+	args.hashval = xfs_da_hashname(args.name, args.namelen);
+	args.value = &name_value[attr->xattri_name_len];
+	args.valuelen = attr->xattri_value_len;
+	args.op_flags = XFS_DA_OP_OKNOENT;
+	args.total = xfs_attr_calc_size(&args, &local);
+	args.trans = tp;
+
+	error = xfs_trans_attr(&args, done_item,
+		attr->xattri_op_flags);
+out:
+	kmem_free(attr);
+	return error;
+}
+
+/* Abort all pending ATTRs. */
+STATIC void
+xfs_attr_abort_intent(
+	void			    *intent)
+{
+}
+
+/* Cancel an attr */
+
+STATIC void
+xfs_attr_cancel_item(
+	struct list_head		*item)
+{
+	struct xfs_attr_item    *free;
+
+	free = container_of(item, struct xfs_attr_item, xattri_list);
+	kmem_free(free);
+}
+
+const struct xfs_defer_op_type xfs_attr_defer_type = {
+	.max_items	= XFS_ATTRI_MAX_FAST_ATTRS,
+	.diff_items     = xfs_attr_diff_items,
+	.create_intent  = xfs_attr_create_intent,
+	.abort_intent   = xfs_attr_abort_intent,
+	.log_item       = xfs_attr_log_item,
+	.create_done    = xfs_attr_create_done,
+	.finish_item    = xfs_attr_finish_item,
+	.cancel_item    = xfs_attr_cancel_item,
 };
 
 /*
