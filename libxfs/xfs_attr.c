@@ -231,10 +231,37 @@ int
 xfs_attr_set_args(
 	struct xfs_da_args	*args,
 	struct xfs_buf          **leaf_bp,
+	enum xfs_attr_state	*state,
 	bool			roll_trans)
 {
 	struct xfs_inode	*dp = args->dp;
 	int			error = 0;
+	int			sf_size;
+
+	switch (*state) {
+	case (XFS_ATTR_STATE1):
+		goto state1;
+	case (XFS_ATTR_STATE2):
+		goto state2;
+	case (XFS_ATTR_STATE3):
+		goto state3;
+	}
+
+	/*
+	 * New inodes may not have an attribute fork yet. So set the attribute
+	 * fork appropriately
+	 */
+	if (XFS_IFORK_Q((args->dp)) == 0) {
+		sf_size = sizeof(struct xfs_attr_sf_hdr) +
+		     XFS_ATTR_SF_ENTSIZE_BYNAME(args->namelen, args->valuelen);
+		xfs_bmap_set_attrforkoff(args->dp, sf_size, NULL);
+		args->dp->i_afp = kmem_zone_zalloc(xfs_ifork_zone, KM_SLEEP);
+		args->dp->i_afp->if_flags = XFS_IFEXTENTS;
+	}
+
+	*state = XFS_ATTR_STATE1;
+	return -EAGAIN;
+state1:
 
 	/*
 	 * If the attribute list is non-existent or a shortform list,
@@ -243,7 +270,6 @@ xfs_attr_set_args(
 	if (dp->i_d.di_aformat == XFS_DINODE_FMT_LOCAL ||
 	    (dp->i_d.di_aformat == XFS_DINODE_FMT_EXTENTS &&
 	     dp->i_d.di_anextents == 0)) {
-
 		/*
 		 * Build initial attribute list (if required).
 		 */
@@ -257,6 +283,9 @@ xfs_attr_set_args(
 		if (error != -ENOSPC)
 			return error;
 
+		*state = XFS_ATTR_STATE2;
+		return -EAGAIN;
+state2:
 		/*
 		 * It won't fit in the shortform, transform to a leaf block.
 		 * GROT: another possible req'mt for a double-split btree op.
@@ -265,14 +294,14 @@ xfs_attr_set_args(
 		if (error)
 			return error;
 
-		if (roll_trans) {
-			/*
-			 * Prevent the leaf buffer from being unlocked so that a
-			 * concurrent AIL push cannot grab the half-baked leaf
-			 * buffer and run into problems with the write verifier.
-			 */
-			xfs_trans_bhold(args->trans, *leaf_bp);
+		/*
+		 * Prevent the leaf buffer from being unlocked so that a
+		 * concurrent AIL push cannot grab the half-baked leaf
+		 * buffer and run into problems with the write verifier.
+		 */
+		xfs_trans_bhold(args->trans, *leaf_bp);
 
+		if (roll_trans) {
 			error = xfs_defer_finish(&args->trans);
 			if (error)
 				return error;
@@ -288,6 +317,12 @@ xfs_attr_set_args(
 			xfs_trans_bjoin(args->trans, *leaf_bp);
 			*leaf_bp = NULL;
 		}
+
+		*state = XFS_ATTR_STATE3;
+		return -EAGAIN;
+state3:
+		if (*leaf_bp != NULL)
+			xfs_trans_brelse(args->trans, *leaf_bp);
 	}
 
 	if (xfs_bmap_one_block(dp, XFS_ATTR_FORK))
@@ -414,7 +449,9 @@ xfs_attr_set(
 		goto out_trans_cancel;
 
 	xfs_trans_ijoin(args.trans, dp, 0);
-	error = xfs_attr_set_args(&args, &leaf_bp, true);
+
+	error = xfs_attr_set_deferred(dp, args.trans, name, namelen,
+			value, valuelen, flags);
 	if (error)
 		goto out_release_leaf;
 	if (!args.trans) {
@@ -549,8 +586,13 @@ xfs_attr_remove(
 	 */
 	xfs_trans_ijoin(args.trans, dp, 0);
 
-	error = xfs_attr_remove_args(&args, true);
+	error = xfs_has_attr(&args);
+	if (error)
+		goto out;
 
+
+	error = xfs_attr_remove_deferred(dp, args.trans,
+			name, namelen, flags);
 	if (error)
 		goto out;
 
