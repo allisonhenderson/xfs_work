@@ -1104,6 +1104,7 @@ static void alloc_behind_master_bio(struct r1bio *r1_bio,
 
 	behind_bio->bi_write_hint = bio->bi_write_hint;
 
+	bitmap_copy(behind_bio->bi_rd_hint, bio->bi_rd_hint, BLKDEV_MAX_RECOVERY);
 	while (i < vcnt && size) {
 		struct page *page;
 		int len = min_t(int, PAGE_SIZE, size);

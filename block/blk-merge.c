@@ -658,10 +658,13 @@ static int ll_merge_requests_fn(struct request_queue *q, struct request *req,
 void blk_rq_set_mixed_merge(struct request *rq)
 {
 	unsigned int ff = rq->cmd_flags & REQ_FAILFAST_MASK;
-	struct bio *bio;
+	struct bio *bio = rq->bio;
 
 	if (rq->rq_flags & RQF_MIXED_MERGE)
 		return;
+
+	if (!bitmap_equal(rq->rd_hint, bio->bi_next->bi_rd_hint, BLKDEV_MAX_RECOVERY))
+		return NULL;
 
 	/*
 	 * @rq will no longer represent mixable attributes for all the
@@ -878,6 +881,9 @@ bool blk_rq_merge_ok(struct request *rq, struct bio *bio)
 		return false;
 
 	if (rq->ioprio != bio_prio(bio))
+		return false;
+
+	if (!bitmap_equal(rq->rd_hint, bio->bi_rd_hint, BLKDEV_MAX_RECOVERY))
 		return false;
 
 	return true;

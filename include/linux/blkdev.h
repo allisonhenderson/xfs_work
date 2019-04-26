@@ -216,6 +216,8 @@ struct request {
 	unsigned short nr_integrity_segments;
 #endif
 
+	DECLARE_BITMAP(rd_hint, BLKDEV_MAX_RECOVERY);
+
 	unsigned short write_hint;
 	unsigned short ioprio;
 
