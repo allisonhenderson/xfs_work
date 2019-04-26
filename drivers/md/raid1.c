@@ -3050,6 +3050,7 @@ static int raid1_run(struct mddev *mddev)
 	struct md_rdev *rdev;
 	int ret;
 	bool discard_supported = false;
+	unsigned long recovery = 0;
 
 	if (mddev->level != 1) {
 		pr_warn("md/raid1:%s: raid level not set to mirroring (%d)\n",
@@ -3084,11 +3085,15 @@ static int raid1_run(struct mddev *mddev)
 	rdev_for_each(rdev, mddev) {
 		if (!mddev->gendisk)
 			continue;
+		recovery += blk_queue_get_recovery(bdev_get_queue(rdev->bdev));
 		disk_stack_limits(mddev->gendisk, rdev->bdev,
 				  rdev->data_offset << 9);
 		if (blk_queue_discard(bdev_get_queue(rdev->bdev)))
 			discard_supported = true;
 	}
+	if (mddev->queue)
+		if (!blk_queue_set_recovery(mddev->queue, recovery))
+			return -EINVAL;
 
 	mddev->degraded = 0;
 	for (i=0; i < conf->raid_disks; i++)
