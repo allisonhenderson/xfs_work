@@ -325,6 +325,42 @@ static int find_bio_disk(struct r1bio *r1_bio, struct bio *bio)
 	return mirror;
 }
 
+/* Merge children's rd hint to master bio */
+static void raid1_merge_rd_hint(struct bio *bio)
+{
+	struct r1bio *r1_bio = bio->bi_private;
+	struct r1conf *conf = r1_bio->mddev->private;
+	struct md_rdev *tmp_rdev = NULL;
+	int i = conf->raid_disks - 1;
+	int cnt = 0;
+	int read_disk = r1_bio->read_disk;
+	DECLARE_BITMAP(tmp_bitmap, BLKDEV_MAX_RECOVERY);
+
+	if (!r1_bio->master_bio)
+		return;
+
+	/* ignore replace case now */
+	if (read_disk > conf->raid_disks - 1)
+		read_disk = r1_bio->read_disk - conf->raid_disks;
+
+	for (; i >= 0; i--) {
+		tmp_rdev = conf->mirrors[i].rdev;
+		if (i == read_disk)
+			break;
+		cnt += blk_queue_get_recovery(bdev_get_queue(tmp_rdev->bdev));
+	}
+
+	/* Set rd_hint to 1 for the lowest layer, so as to record the read I/O
+	 * went to this device. */
+	if (blk_queue_get_recovery(bdev_get_queue(tmp_rdev->bdev)) == 1)
+		bitmap_set(bio->bi_rd_hint, 0, 1);
+
+	bitmap_shift_left(tmp_bitmap, bio->bi_rd_hint, cnt, BLKDEV_MAX_RECOVERY);
+	bitmap_or(r1_bio->master_bio->bi_rd_hint,
+		  r1_bio->master_bio->bi_rd_hint, tmp_bitmap,
+		  BLKDEV_MAX_RECOVERY);
+}
+
 static void raid1_end_read_request(struct bio *bio)
 {
 	int uptodate = !bio->bi_status;
@@ -332,6 +368,7 @@ static void raid1_end_read_request(struct bio *bio)
 	struct r1conf *conf = r1_bio->mddev->private;
 	struct md_rdev *rdev = conf->mirrors[r1_bio->read_disk].rdev;
 
+	raid1_merge_rd_hint(bio);
 	/*
 	 * this branch is our 'one mirror IO has finished' event handler:
 	 */
@@ -539,6 +576,37 @@ static sector_t align_to_barrier_unit_end(sector_t start_sector,
 	return len;
 }
 
+static long choose_disk_from_rd_hint(struct r1conf *conf, struct r1bio *r1_bio)
+{
+	struct md_rdev *tmp_rdev;
+	unsigned long bit, cnt;
+	struct bio *bio = r1_bio->master_bio;
+	int recovery = conf->raid_disks - 1;
+
+	cnt = blk_queue_get_recovery(r1_bio->mddev->queue);
+	/* Find a never-readed device */
+	bit = bitmap_find_next_zero_area(bio->bi_rd_hint, cnt, 0, 1, 0);
+	if (bit >= cnt)
+		/* Already tried all recovery */
+		return -1;
+
+	/* Decide this device belongs to which recovery for stacked-layer raid
+	 * devices. */
+	cnt = 0;
+	for ( ; recovery >= 0; recovery--) {
+		tmp_rdev = conf->mirrors[recovery].rdev;
+		cnt += blk_queue_get_recovery(bdev_get_queue(tmp_rdev->bdev));
+		/* bit start from 0, while recovery start from 1. So should compare
+		 * with (bit + 1) */
+		if (cnt >= (bit + 1)) {
+			return recovery;
+		}
+	}
+
+	/* Should not arrive here. */
+	return -1;
+}
+
 /*
  * This routine returns the disk from which the requested read should
  * be done. There is a per-array 'next expected sequential IO' sector
@@ -566,6 +634,7 @@ static int read_balance(struct r1conf *conf, struct r1bio *r1_bio, int *max_sect
 	struct md_rdev *rdev;
 	int choose_first;
 	int choose_next_idle;
+	int max_disks;
 
 	rcu_read_lock();
 	/*
@@ -593,7 +662,18 @@ static int read_balance(struct r1conf *conf, struct r1bio *r1_bio, int *max_sect
 	else
 		choose_first = 0;
 
-	for (disk = 0 ; disk < conf->raid_disks * 2 ; disk++) {
+	if (!bitmap_empty(r1_bio->master_bio->bi_rd_hint, BLKDEV_MAX_RECOVERY)) {
+		disk  = choose_disk_from_rd_hint(conf, r1_bio);
+		if (disk < 0)
+			return -1;
+
+		/* Use the specific disk */
+		max_disks = disk + 1;
+	} else {
+		disk = 0;
+		max_disks = conf->raid_disks * 2;
+	}
+	for (; disk < max_disks; disk++) {
 		sector_t dist;
 		sector_t first_bad;
 		int bad_sectors;
@@ -1186,6 +1266,34 @@ alloc_r1bio(struct mddev *mddev, struct bio *bio)
 	return r1_bio;
 }
 
+static void raid1_split_rd_hint(struct bio *bio)
+{
+	struct r1bio *r1_bio = bio->bi_private;
+	struct r1conf *conf = r1_bio->mddev->private;
+	unsigned int cnt = 0;
+	DECLARE_BITMAP(tmp_bitmap, BLKDEV_MAX_RECOVERY);
+
+	int i = conf->raid_disks - 1;
+	struct md_rdev *tmp_rdev = NULL;
+
+	for (; i >= 0; i--) {
+		tmp_rdev = conf->mirrors[i].rdev;
+		if (i == r1_bio->read_disk)
+			break;
+		cnt += blk_queue_get_recovery(bdev_get_queue(tmp_rdev->bdev));
+	}
+
+	bitmap_zero(tmp_bitmap, BLKDEV_MAX_RECOVERY);
+	bitmap_shift_right(bio->bi_rd_hint, r1_bio->master_bio->bi_rd_hint, cnt,
+			BLKDEV_MAX_RECOVERY);
+
+	cnt = blk_queue_get_recovery(bdev_get_queue(tmp_rdev->bdev));
+	bitmap_set(tmp_bitmap, 0, cnt);
+
+	bitmap_and(bio->bi_rd_hint, bio->bi_rd_hint, tmp_bitmap,
+			BLKDEV_MAX_RECOVERY);
+}
+
 static void raid1_read_request(struct mddev *mddev, struct bio *bio,
 			       int max_read_sectors, struct r1bio *r1_bio)
 {
@@ -1199,6 +1307,7 @@ static void raid1_read_request(struct mddev *mddev, struct bio *bio,
 	int rdisk;
 	bool print_msg = !!r1_bio;
 	char b[BDEVNAME_SIZE];
+	bool auto_select_recovery;
 
 	/*
 	 * If r1_bio is set, we are blocking the raid1d thread
@@ -1230,6 +1339,8 @@ static void raid1_read_request(struct mddev *mddev, struct bio *bio,
 	else
 		init_r1bio(r1_bio, mddev, bio);
 	r1_bio->sectors = max_read_sectors;
+	auto_select_recovery = bitmap_empty(r1_bio->master_bio->bi_rd_hint, BLKDEV_MAX_RECOVERY);
+
 
 	/*
 	 * make_request() can abort the operation when read-ahead is being
@@ -1238,6 +1349,9 @@ static void raid1_read_request(struct mddev *mddev, struct bio *bio,
 	rdisk = read_balance(conf, r1_bio, &max_sectors);
 
 	if (rdisk < 0) {
+		if (auto_select_recovery)
+			bitmap_set(r1_bio->master_bio->bi_rd_hint, 0, BLKDEV_MAX_RECOVERY);
+
 		/* couldn't find anywhere to read from */
 		if (print_msg) {
 			pr_crit_ratelimited("md/raid1:%s: %s: unrecoverable I/O read error for block %llu\n",
@@ -1292,6 +1406,8 @@ static void raid1_read_request(struct mddev *mddev, struct bio *bio,
 	    test_bit(R1BIO_FailFast, &r1_bio->state))
 	        read_bio->bi_opf |= MD_FAILFAST;
 	read_bio->bi_private = r1_bio;
+	/* rd_hint of read_bio is a subset of master_bio. */
+	raid1_split_rd_hint(read_bio);
 
 	if (mddev->gendisk)
 	        trace_block_bio_remap(read_bio->bi_disk->queue, read_bio,
