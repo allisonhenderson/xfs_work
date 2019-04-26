@@ -844,6 +844,30 @@ void blk_queue_write_cache(struct request_queue *q, bool wc, bool fua)
 }
 EXPORT_SYMBOL_GPL(blk_queue_write_cache);
 
+/*
+ * Get the number of read redundant recovery.
+ */
+unsigned short blk_queue_get_recovery(struct request_queue *q)
+{
+	return q->nr_recovery;
+}
+EXPORT_SYMBOL(blk_queue_get_recovery);
+
+/*
+ * Set the number of read redundant recovery.
+ */
+bool blk_queue_set_recovery(struct request_queue *q, unsigned short recovery)
+{
+	if(q->nr_recovery >= BLKDEV_MAX_RECOVERY) {
+		printk("blk_queue_set_recovery: %d exceed max recovery(%d)\n",
+				recovery, BLKDEV_MAX_RECOVERY);
+		return false;
+	}
+	q->nr_recovery = recovery;
+	return true;
+}
+EXPORT_SYMBOL(blk_queue_set_recovery);
+
 static int __init blk_settings_init(void)
 {
 	blk_max_low_pfn = max_low_pfn - 1;

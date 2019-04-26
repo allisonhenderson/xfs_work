@@ -537,6 +537,9 @@ struct request_queue *blk_alloc_queue_node(gfp_t gfp_mask, int node_id)
 	if (blkcg_init_queue(q))
 		goto fail_ref;
 
+	/* Set queue default recovery to 1 explicitly. */
+	blk_queue_set_recovery(q, 1);
+
 	return q;
 
 fail_ref:

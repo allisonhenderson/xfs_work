@@ -47,6 +47,9 @@ struct blk_stat_callback;
 #define BLKDEV_MIN_RQ	4
 #define BLKDEV_MAX_RQ	128	/* Default maximum */
 
+/* Number of ways to recover data for a block device */
+#define BLKDEV_MAX_RECOVERY BITS_PER_LONG
+
 /* Must be consistent with blk_mq_poll_stats_bkt() */
 #define BLK_MQ_POLL_STATS_BKTS 16
 
@@ -570,6 +573,7 @@ struct request_queue {
 
 #define BLK_MAX_WRITE_HINTS	5
 	u64			write_hints[BLK_MAX_WRITE_HINTS];
+	unsigned long		nr_recovery; /* Default value is 1 */
 };
 
 #define QUEUE_FLAG_STOPPED	1	/* queue is stopped */
@@ -1071,6 +1075,8 @@ extern void blk_queue_update_dma_alignment(struct request_queue *, int);
 extern void blk_queue_rq_timeout(struct request_queue *, unsigned int);
 extern void blk_queue_flush_queueable(struct request_queue *q, bool queueable);
 extern void blk_queue_write_cache(struct request_queue *q, bool enabled, bool fua);
+extern unsigned short blk_queue_get_recovery(struct request_queue *q);
+extern bool blk_queue_set_recovery(struct request_queue *q, unsigned short recovery);
 
 /*
  * Number of physical segments as sent to the device.
