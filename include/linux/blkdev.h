@@ -1071,6 +1071,8 @@ extern void blk_queue_update_dma_alignment(struct request_queue *, int);
 extern void blk_queue_rq_timeout(struct request_queue *, unsigned int);
 extern void blk_queue_flush_queueable(struct request_queue *q, bool queueable);
 extern void blk_queue_write_cache(struct request_queue *q, bool enabled, bool fua);
+extern unsigned short blk_queue_get_recovery(struct request_queue *q);
+extern bool blk_queue_set_recovery(struct request_queue *q, unsigned short recovery);
 
 /*
  * Number of physical segments as sent to the device.
