@@ -663,6 +663,9 @@ void blk_rq_set_mixed_merge(struct request *rq)
 	if (rq->rq_flags & RQF_MIXED_MERGE)
 		return;
 
+	if (!bitmap_equal(req->rd_hint, next->rd_hint, BLKDEV_MAX_RECOVERY))
+		return NULL;
+
 	/*
 	 * @rq will no longer represent mixable attributes for all the
 	 * contained bios.  It will just track those of the first one.
@@ -878,6 +881,9 @@ bool blk_rq_merge_ok(struct request *rq, struct bio *bio)
 		return false;
 
 	if (rq->ioprio != bio_prio(bio))
+		return false;
+
+	if (!bitmap_equal(rq->rd_hint, bio->bi_rd_hint, BLKDEV_MAX_RECOVERY))
 		return false;
 
 	return true;

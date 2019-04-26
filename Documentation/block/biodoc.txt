@@ -430,6 +430,10 @@ struct bio {
        struct bio          *bi_next;    /* request queue link */
        struct block_device *bi_bdev;	/* target device */
        unsigned long       bi_flags;    /* status, command, etc */
+       union {
+            unsigned short		bi_write_hint;
+            DECLARE_BITMAP(bi_rd_hint, BLKDEV_MAX_RECOVERY);
+       };
        unsigned long       bi_opf;       /* low bits: r/w, high: priority */
 
        unsigned int	bi_vcnt;     /* how may bio_vec's */
@@ -464,6 +468,8 @@ With this multipage bio design:
   (e.g a 1MB bio_vec needs to be handled in max 128kB chunks for IDE)
   [TBD: Should preferably also have a bi_voffset and bi_vlen to avoid modifying
    bi_offset an len fields]
+- bi_rd_hint is an in/out bitmap parameter, set a bit to 1 means already read
+  from the corresponding recovery device.
 
 (*) unrelated merges -- a request ends up containing two or more bios that
     didn't originate from the same place.

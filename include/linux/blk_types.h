@@ -45,6 +45,9 @@ typedef u8 __bitwise blk_status_t;
 
 #define BLK_STS_AGAIN		((__force blk_status_t)12)
 
+/* Number of ways to recover data for a block device */
+#define BLKDEV_MAX_RECOVERY BITS_PER_LONG
+
 /*
  * BLK_STS_DEV_RESOURCE is returned from the driver to the block layer if
  * device related resources are unavailable, but the driver can guarantee
@@ -150,7 +153,10 @@ struct bio {
 						 */
 	unsigned short		bi_flags;	/* status, etc and bvec pool number */
 	unsigned short		bi_ioprio;
-	unsigned short		bi_write_hint;
+	union {
+		unsigned short		bi_write_hint;
+		DECLARE_BITMAP(bi_rd_hint, BLKDEV_MAX_RECOVERY);
+	};
 	blk_status_t		bi_status;
 	u8			bi_partno;
 
