@@ -33,6 +33,8 @@
 #include "xfs_error.h"
 
 static kmem_zone_t *xfs_buf_zone;
+static kmem_zone_t *xfs_bio_zone;
+
 
 #define xb_to_gfp(flags) \
 	((((flags) & XBF_READ_AHEAD) ? __GFP_NORETRY : GFP_NOFS) | __GFP_NOWARN)
@@ -240,6 +242,7 @@ _xfs_buf_alloc(
 	INIT_LIST_HEAD(&bp->b_lru);
 	INIT_LIST_HEAD(&bp->b_list);
 	INIT_LIST_HEAD(&bp->b_li_list);
+	INIT_LIST_HEAD(&bp->b_bio_list);
 	sema_init(&bp->b_sema, 0); /* held, no waiters */
 	spin_lock_init(&bp->b_lock);
 	bp->b_target = target;
@@ -273,6 +276,38 @@ _xfs_buf_alloc(
 
 	return bp;
 }
+
+struct xfs_bio *xfs_bio_alloc()
+{
+        struct xfs_bio          *bp;
+
+        bp = kmem_zone_zalloc(xfs_bio_zone, KM_NOFS);
+        if (unlikely(!bp))
+                return NULL;
+
+        INIT_LIST_HEAD(&bp->b_list);
+
+	return bp;
+}
+
+STATIC void xfs_buf_put_bios(struct xfs_buf *bp) {
+	struct xfs_bio		*xbp, *n;
+
+	list_for_each_entry_safe(xbp, n, &bp->b_bio_list, b_list) {
+		bio_put(xbp->bio);
+		list_del_init(&xbp->b_list);
+		kmem_free(xbp);
+	}
+}
+
+STATIC void xfs_buf_submit_bios(struct xfs_buf *bp) {
+	struct xfs_bio          *xbp, *n;
+
+	list_for_each_entry_safe(xbp, n, &bp->b_bio_list, b_list) {
+		submit_bio(xbp->bio);
+	}
+}
+
 
 /*
  *	Allocate a page array capable of holding a specified number
@@ -1224,7 +1259,8 @@ void
 xfs_buf_ioend(
 	struct xfs_buf	*bp)
 {
-	bool		read = bp->b_flags & XBF_READ;
+	bool			read = bp->b_flags & XBF_READ;
+	struct request_queue	*q = bdev_get_queue(bp->b_target->bt_bdev);
 
 	trace_xfs_buf_iodone(bp, _RET_IP_);
 
@@ -1241,6 +1277,17 @@ xfs_buf_ioend(
 	if (read && !bp->b_error && bp->b_ops) {
 		ASSERT(!bp->b_iodone);
 		bp->b_ops->verify_read(bp);
+		switch (bp->b_error) {
+		case -EIO:
+		case -EFSCORRUPTED:
+		case -EFSBADCRC:
+			bp->b_mirrors++;
+			if (bp->b_mirrors <= blk_queue_get_recovery(q))
+				xfs_buf_submit_bios(bp);
+			break;
+		default:
+			xfs_buf_put_bios(bp);
+		}
 	}
 
 	if (!bp->b_error)
@@ -1335,7 +1382,6 @@ xfs_buf_bio_end_io(
 
 	if (atomic_dec_and_test(&bp->b_io_remaining) == 1)
 		xfs_buf_ioend_async(bp);
-	bio_put(bio);
 }
 
 static void
@@ -1351,6 +1397,7 @@ xfs_buf_ioapply_map(
 	int		total_nr_pages = bp->b_page_count;
 	int		nr_pages;
 	struct bio	*bio;
+	struct xfs_bio	*xbio;
 	sector_t	sector =  bp->b_maps[map].bm_bn;
 	int		size;
 	int		offset;
@@ -1371,6 +1418,7 @@ xfs_buf_ioapply_map(
 	*count -= size;
 	*buf_offset += size;
 
+	bp->b_mirrors = 0;
 next_chunk:
 	atomic_inc(&bp->b_io_remaining);
 	nr_pages = min(total_nr_pages, BIO_MAX_PAGES);
@@ -1381,6 +1429,10 @@ next_chunk:
 	bio->bi_end_io = xfs_buf_bio_end_io;
 	bio->bi_private = bp;
 	bio_set_op_attrs(bio, op, op_flags);
+
+	xbio = xfs_bio_alloc();
+	xbio->bio = bio;
+	list_add_tail(&xbio->b_list, &bp->b_bio_list);
 
 	for (; size && nr_pages; nr_pages--, page_index++) {
 		int	rbytes, nbytes = PAGE_SIZE - offset;

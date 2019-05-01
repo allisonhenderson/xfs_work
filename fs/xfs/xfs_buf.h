@@ -202,7 +202,15 @@ typedef struct xfs_buf {
 	int			b_last_error;
 
 	const struct xfs_buf_ops	*b_ops;
+
+	struct list_head        	b_bio_list;
+	unsigned int			b_mirrors;
 } xfs_buf_t;
+
+struct xfs_bio {
+	struct list_head	b_list;
+	struct bio      	*bio;
+};
 
 /* Finding and Reading Buffers */
 struct xfs_buf *xfs_buf_incore(struct xfs_buftarg *target,
@@ -212,6 +220,7 @@ struct xfs_buf *xfs_buf_incore(struct xfs_buftarg *target,
 struct xfs_buf *_xfs_buf_alloc(struct xfs_buftarg *target,
 			       struct xfs_buf_map *map, int nmaps,
 			       xfs_buf_flags_t flags);
+struct xfs_bio *xfs_bio_alloc(void);
 
 static inline struct xfs_buf *
 xfs_buf_alloc(
