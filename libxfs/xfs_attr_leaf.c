@@ -2641,7 +2641,8 @@ xfs_attr_leaf_newentsize(
  */
 int
 xfs_attr3_leaf_clearflag(
-	struct xfs_da_args	*args)
+	struct xfs_da_args	*args,
+	bool			roll_trans)
 {
 	struct xfs_attr_leafblock *leaf;
 	struct xfs_attr_leaf_entry *entry;
@@ -2702,7 +2703,9 @@ xfs_attr3_leaf_clearflag(
 	/*
 	 * Commit the flag value change and start the next trans in series.
 	 */
-	return xfs_trans_roll_inode(&args->trans, args->dp);
+	if (roll_trans)
+		error = xfs_trans_roll_inode(&args->trans, args->dp);
+	return error;
 }
 
 /*
@@ -2710,7 +2713,8 @@ xfs_attr3_leaf_clearflag(
  */
 int
 xfs_attr3_leaf_setflag(
-	struct xfs_da_args	*args)
+	struct xfs_da_args	*args,
+	bool			roll_trans)
 {
 	struct xfs_attr_leafblock *leaf;
 	struct xfs_attr_leaf_entry *entry;
@@ -2753,7 +2757,9 @@ xfs_attr3_leaf_setflag(
 	/*
 	 * Commit the flag value change and start the next trans in series.
 	 */
-	return xfs_trans_roll_inode(&args->trans, args->dp);
+	if (roll_trans)
+		error = xfs_trans_roll_inode(&args->trans, args->dp);
+	return error;
 }
 
 /*
@@ -2765,7 +2771,8 @@ xfs_attr3_leaf_setflag(
  */
 int
 xfs_attr3_leaf_flipflags(
-	struct xfs_da_args	*args)
+	struct xfs_da_args	*args,
+	bool			roll_trans)
 {
 	struct xfs_attr_leafblock *leaf1;
 	struct xfs_attr_leafblock *leaf2;
@@ -2871,7 +2878,8 @@ xfs_attr3_leaf_flipflags(
 	/*
 	 * Commit the flag value change and start the next trans in series.
 	 */
-	error = xfs_trans_roll_inode(&args->trans, args->dp);
+	if (roll_trans)
+		error = xfs_trans_roll_inode(&args->trans, args->dp);
 
 	return error;
 }
