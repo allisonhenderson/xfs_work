@@ -368,10 +368,12 @@ xfs_attr_set(
 	struct xfs_buf		*leaf_bp = NULL;
 	struct xfs_da_args	args;
 	struct xfs_trans_res	tres;
-	int			rsvd = (flags & ATTR_ROOT) != 0;
+	int			rsvd;
 	int			error, local;
 
 	XFS_STATS_INC(mp, xs_attr_set);
+
+	rsvd = ((flags & ATTR_ROOT) | ATTR_PARENT) != 0;
 
 	if (XFS_FORCED_SHUTDOWN(dp->i_mount))
 		return -EIO;
