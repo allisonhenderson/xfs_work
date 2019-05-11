@@ -437,7 +437,7 @@ xfs_attrmulti_attr_get(
 {
 	unsigned char		*kbuf;
 	int			error = -EFAULT;
-	size_t			namelen;
+	struct xfs_name		xname;
 
 	if (*len > XFS_XATTR_SIZE_MAX)
 		return -EINVAL;
@@ -445,9 +445,10 @@ xfs_attrmulti_attr_get(
 	if (!kbuf)
 		return -ENOMEM;
 
-	namelen = strlen(name);
-	error = xfs_attr_get(XFS_I(inode), name, namelen,
-			     kbuf, (int *)len, flags);
+	xname.name = name;
+	xname.len = strlen(name);
+	xname.type = flags;
+	error = xfs_attr_get(XFS_I(inode), &xname, kbuf, (int *)len);
 	if (error)
 		goto out_kfree;
 
@@ -469,7 +470,7 @@ xfs_attrmulti_attr_set(
 {
 	unsigned char		*kbuf;
 	int			error;
-	size_t			namelen;
+	struct xfs_name		xname;
 
 	if (IS_IMMUTABLE(inode) || IS_APPEND(inode))
 		return -EPERM;
@@ -480,8 +481,10 @@ xfs_attrmulti_attr_set(
 	if (IS_ERR(kbuf))
 		return PTR_ERR(kbuf);
 
-	namelen = strlen(name);
-	error = xfs_attr_set(XFS_I(inode), name, namelen, kbuf, len, flags);
+	xname.name = name;
+	xname.len = strlen(name);
+	xname.type = flags;
+	error = xfs_attr_set(XFS_I(inode), &xname, kbuf, len);
 	if (!error)
 		xfs_forget_acl(inode, name, flags);
 	kfree(kbuf);
@@ -495,12 +498,15 @@ xfs_attrmulti_attr_remove(
 	uint32_t		flags)
 {
 	int			error;
-	size_t			namelen;
+	struct xfs_name		xname;
 
 	if (IS_IMMUTABLE(inode) || IS_APPEND(inode))
 		return -EPERM;
-	namelen = strlen(name);
-	error = xfs_attr_remove(XFS_I(inode), name, namelen, flags);
+
+	xname.name = name;
+	xname.len = strlen(name);
+	xname.type = flags;
+	error = xfs_attr_remove(XFS_I(inode), &xname);
 	if (!error)
 		xfs_forget_acl(inode, name, flags);
 	return error;

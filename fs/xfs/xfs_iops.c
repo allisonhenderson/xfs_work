@@ -56,13 +56,15 @@ xfs_initxattrs(
 {
 	const struct xattr	*xattr;
 	struct xfs_inode	*ip = XFS_I(inode);
+	struct xfs_name		name;
 	int			error = 0;
 
 	for (xattr = xattr_array; xattr->name != NULL; xattr++) {
-		error = xfs_attr_set(ip, xattr->name,
-				     strlen(xattr->name),
-				     xattr->value, xattr->value_len,
-				     ATTR_SECURE);
+		name.name = xattr->name;
+		name.len = strlen(xattr->name);
+		name.type = ATTR_SECURE;
+		error = xfs_attr_set(ip, &name,
+				     xattr->value, xattr->value_len);
 		if (error < 0)
 			break;
 	}

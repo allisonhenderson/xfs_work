@@ -23,18 +23,17 @@ static int
 xfs_xattr_get(const struct xattr_handler *handler, struct dentry *unused,
 		struct inode *inode, const char *name, void *value, size_t size)
 {
-	int xflags = handler->flags;
 	struct xfs_inode *ip = XFS_I(inode);
 	int error, asize = size;
-	size_t namelen = strlen(name);
+	struct xfs_name xname = {name, strlen(name), handler->flags};
 
 	/* Convert Linux syscall to XFS internal ATTR flags */
 	if (!size) {
-		xflags |= ATTR_KERNOVAL;
+		xname.type |= ATTR_KERNOVAL;
 		value = NULL;
 	}
 
-	error = xfs_attr_get(ip, name, namelen, value, &asize, xflags);
+	error = xfs_attr_get(ip, &xname, value, &asize);
 	if (error)
 		return error;
 	return asize;
@@ -67,23 +66,21 @@ xfs_xattr_set(const struct xattr_handler *handler, struct dentry *unused,
 		struct inode *inode, const char *name, const void *value,
 		size_t size, int flags)
 {
-	int			xflags = handler->flags;
 	struct xfs_inode	*ip = XFS_I(inode);
 	int			error;
-	size_t			namelen = strlen(name);
+	struct xfs_name		xname = {name, strlen(name), handler->flags};
 
 	/* Convert Linux syscall to XFS internal ATTR flags */
 	if (flags & XATTR_CREATE)
-		xflags |= ATTR_CREATE;
+		xname.type |= ATTR_CREATE;
 	if (flags & XATTR_REPLACE)
-		xflags |= ATTR_REPLACE;
+		xname.type |= ATTR_REPLACE;
 
 	if (!value)
-		return xfs_attr_remove(ip, name,
-				       namelen, xflags);
-	error = xfs_attr_set(ip, name, namelen, (void *)value, size, xflags);
+		return xfs_attr_remove(ip, &xname);
+	error = xfs_attr_set(ip, &xname, (void *)value, size);
 	if (!error)
-		xfs_forget_acl(inode, name, xflags);
+		xfs_forget_acl(inode, name, xname.type);
 
 	return error;
 }
