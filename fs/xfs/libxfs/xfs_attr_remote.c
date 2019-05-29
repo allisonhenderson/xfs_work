@@ -21,6 +21,7 @@
 #include "xfs_attr.h"
 #include "xfs_trace.h"
 #include "xfs_error.h"
+#include "xfs_attr_remote.h"
 
 #define ATTR_RMTVALUE_MAPSIZE	1	/* # of map entries at once */
 
@@ -430,34 +431,18 @@ xfs_attr_rmtval_set(
 	struct xfs_da_args	*args)
 {
 	struct xfs_inode	*dp = args->dp;
-	struct xfs_mount	*mp = dp->i_mount;
 	struct xfs_bmbt_irec	map;
 	xfs_dablk_t		lblkno;
 	xfs_fileoff_t		lfileoff = 0;
-	uint8_t			*src = args->value;
 	int			blkcnt;
-	int			valuelen;
 	int			nmap;
 	int			error;
-	int			offset = 0;
 
-	trace_xfs_attr_rmtval_set(args);
-
-	/*
-	 * Find a "hole" in the attribute address space large enough for
-	 * us to drop the new attribute's value into. Because CRC enable
-	 * attributes have headers, we can't just do a straight byte to FSB
-	 * conversion and have to take the header space into account.
-	 */
-	blkcnt = xfs_attr3_rmt_blocks(mp, args->rmtvaluelen);
-	error = xfs_bmap_first_unused(args->trans, args->dp, blkcnt, &lfileoff,
-						   XFS_ATTR_FORK);
+	error = xfs_attr_rmt_find_hole(args, &blkcnt, &lfileoff);
 	if (error)
 		return error;
 
-	args->rmtblkno = lblkno = (xfs_dablk_t)lfileoff;
-	args->rmtblkcnt = blkcnt;
-
+	lblkno = (xfs_dablk_t)lfileoff;
 	/*
 	 * Roll through the "value", allocating blocks on disk as required.
 	 */
@@ -497,6 +482,58 @@ xfs_attr_rmtval_set(
 		if (error)
 			return error;
 	}
+
+	error = xfs_attr_rmtval_set_value(args);
+	return error;
+}
+
+
+
+int
+xfs_attr_rmt_find_hole(
+	struct xfs_da_args	*args,
+	int			*blkcnt,
+	xfs_fileoff_t		*lfileoff)
+{
+	struct xfs_inode        *dp = args->dp;
+	struct xfs_mount	*mp = dp->i_mount;
+	int			error;
+
+	trace_xfs_attr_rmtval_set(args);
+
+	/*
+	 * Find a "hole" in the attribute address space large enough for
+	 * us to drop the new attribute's value into. Because CRC enable
+	 * attributes have headers, we can't just do a straight byte to FSB
+	 * conversion and have to take the header space into account.
+	 */
+	*blkcnt = xfs_attr3_rmt_blocks(mp, args->rmtvaluelen);
+	error = xfs_bmap_first_unused(args->trans, args->dp, *blkcnt, lfileoff,
+						   XFS_ATTR_FORK);
+	if (error)
+		return error;
+
+	args->rmtblkno = (xfs_dablk_t)*lfileoff;
+	args->rmtblkcnt = *blkcnt;
+
+	return 0;
+}
+
+int
+xfs_attr_rmtval_set_value(
+	struct xfs_da_args	*args)
+{
+	struct xfs_inode	*dp = args->dp;
+	struct xfs_mount	*mp = dp->i_mount;
+	struct xfs_bmbt_irec	map;
+	xfs_dablk_t		lblkno;
+	uint8_t			*src = args->value;
+	int			blkcnt;
+	int			valuelen;
+	int			nmap;
+	int			error;
+	int			offset = 0;
+
 
 	/*
 	 * Roll through the "value", copying the attribute value to the
