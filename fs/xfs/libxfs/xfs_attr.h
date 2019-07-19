@@ -91,6 +91,12 @@ struct xfs_attr_item {
 	struct list_head  xattri_list;
 
 	/*
+	 * xfs_da_args needs to remain instantiated across transaction rolls
+	 * during the defer finish, so store it here
+	 */
+	struct xfs_da_args	xattri_args;
+
+	/*
 	 * A byte array follows the header containing the file name and
 	 * attribute value.
 	 */
