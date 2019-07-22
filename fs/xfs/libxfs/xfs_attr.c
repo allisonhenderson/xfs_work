@@ -521,6 +521,7 @@ xfs_attr_set(
 	int			valuelen)
 {
 	struct xfs_mount	*mp = dp->i_mount;
+	struct xfs_sb		*sbp = &mp->m_sb;
 	struct xfs_buf		*leaf_bp = NULL;
 	struct xfs_da_args	args;
 	struct xfs_trans_res	tres;
@@ -580,7 +581,11 @@ xfs_attr_set(
 		goto out_trans_cancel;
 
 	xfs_trans_ijoin(args.trans, dp, 0);
-	error = xfs_attr_set_args(&args, &leaf_bp);
+	if (XFS_SB_VERSION_NUM(sbp) < XFS_SB_VERSION_4)
+		error = xfs_attr_set_args(&args, &leaf_bp);
+	else
+		error = xfs_attr_set_deferred(dp, args.trans, name, value,
+					      valuelen);
 	if (error)
 		goto out_release_leaf;
 	if (!args.trans) {
@@ -668,6 +673,7 @@ xfs_attr_remove(
 	struct xfs_name		*name)
 {
 	struct xfs_mount	*mp = dp->i_mount;
+	struct xfs_sb		*sbp = &mp->m_sb;
 	struct xfs_da_args	args;
 	int			error;
 
@@ -709,7 +715,14 @@ xfs_attr_remove(
 	 */
 	xfs_trans_ijoin(args.trans, dp, 0);
 
-	error = xfs_attr_remove_args(&args);
+	error = xfs_has_attr(&args);
+	if (error)
+		goto out;
+
+	if (XFS_SB_VERSION_NUM(sbp) < XFS_SB_VERSION_4)
+		error = xfs_attr_remove_args(&args);
+	else
+		error = xfs_attr_remove_deferred(dp, args.trans, name);
 	if (error)
 		goto out;
 
