@@ -107,6 +107,7 @@ xfs_parent_add(
 	struct xfs_name			name;
 	struct xfs_mount		*mp = child->i_mount;
 	int				flags = ATTR_PARENT;
+	struct xfs_sb			*sbp = &mp->m_sb;
 
 	xfs_init_parent_name_rec(&rec, parent, diroffset);
 
@@ -157,7 +158,10 @@ xfs_parent_add(
 	do {
 		leaf_bp = NULL;
 
-		error = xfs_attr_set_args(&args, &leaf_bp);
+		if (XFS_SB_VERSION_NUM(sbp) < XFS_SB_VERSION_4)
+			error = xfs_attr_set_args(&args, &leaf_bp);
+		else
+			error = xfs_attr_da_set_args(&args, &leaf_bp);
 		if (error && error != -EAGAIN)
 			goto out;
 
@@ -183,8 +187,6 @@ xfs_parent_add(
 
 	if (leaf_bp)
 		xfs_trans_brelse(args.trans, leaf_bp);
-
-	xfs_trans_log_inode(args.trans, child, XFS_ILOG_CORE);
 
 	return error;
 
