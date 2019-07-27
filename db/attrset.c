@@ -69,6 +69,7 @@ attr_set_f(
 	xfs_inode_t	*ip = NULL;
 	char		*name, *value, *sp;
 	int		c, valuelen = 0, flags = 0;
+	struct xfs_name	namep;
 
 	if (cur_typ == NULL) {
 		dbprintf(_("no current type\n"));
@@ -146,8 +147,10 @@ attr_set_f(
 		goto out;
 	}
 
-	if (libxfs_attr_set(ip, (unsigned char *)name, strlen(name),
-				(unsigned char *)value, valuelen, flags)) {
+	namep.name = (unsigned char *)name;
+	namep.len = strlen(name);
+	namep.type = flags;
+	if (libxfs_attr_set(ip, &namep, (unsigned char *)value, valuelen)) {
 		dbprintf(_("failed to set attr %s on inode %llu\n"),
 			name, (unsigned long long)iocur_top->ino);
 		goto out;
@@ -173,6 +176,7 @@ attr_remove_f(
 	xfs_inode_t	*ip = NULL;
 	char		*name;
 	int		c, flags = 0;
+	struct xfs_name	namep;
 
 	if (cur_typ == NULL) {
 		dbprintf(_("no current type\n"));
@@ -222,8 +226,10 @@ attr_remove_f(
 		goto out;
 	}
 
-	if (libxfs_attr_remove(ip, (unsigned char *)name,
-			       strlen(name), flags)) {
+	namep.name = (unsigned char *)name;
+	namep.len = strlen(name);
+	namep.type = flags;
+	if (libxfs_attr_remove(ip, &namep)) {
 		dbprintf(_("failed to remove attr %s from inode %llu\n"),
 			name, (unsigned long long)iocur_top->ino);
 		goto out;

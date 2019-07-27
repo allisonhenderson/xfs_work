@@ -220,9 +220,8 @@ bool libxfs_verify_rtbno(struct xfs_mount *mp, xfs_rtblock_t rtbno);
 #define LIBXFS_ATTR_CREATE	0x0010	/* create, but fail if attr exists */
 #define LIBXFS_ATTR_REPLACE	0x0020	/* set, but fail if attr not exists */
 
-int xfs_attr_remove(struct xfs_inode *dp, const unsigned char *name,
-		    size_t namelen, int flags);
-int xfs_attr_set(struct xfs_inode *dp, const unsigned char *name,
-		 size_t namelen, unsigned char *value, int valuelen, int flags);
+int xfs_attr_remove(struct xfs_inode *dp, struct xfs_name *name);
+int xfs_attr_set(struct xfs_inode *dp, struct xfs_name *name,
+		 unsigned char *value, int valuelen);
 
 #endif	/* __LIBXFS_H__ */
