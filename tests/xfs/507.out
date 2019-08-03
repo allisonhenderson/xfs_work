@@ -1,0 +1,18 @@
+QA output created by 507
+*** mkfs
+*** mount FS
+*** make test file 1
+Inject error
+Set attribute
+attr_set: Input/output error
+Could not set "attr_name" for <TESTFILE>.1
+FS should be shut down, touch will fail
+touch: cannot touch '/mnt/scratch/testfile.1': Input/output error
+Remount to replay log
+FS should be online, touch should succeed
+Verify attr recovery
+# file: <TESTFILE>.1
+user.attr_name
+
+*** done
+*** unmount
