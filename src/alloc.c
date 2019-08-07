@@ -233,7 +233,7 @@ bozo!
 	}
 	printf("    blocksize %d\n", blocksize);
 	if (rflag) {
-		struct fsxattr a;
+		struct fsxattr_t a;
 
 #ifdef XFS_IOC_FSGETXATTR
 		if (xfsctl(filename, fd, XFS_IOC_FSGETXATTR, &a) < 0) {

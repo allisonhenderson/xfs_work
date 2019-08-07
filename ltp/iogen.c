@@ -821,7 +821,7 @@ int 	nbytes;
     struct stat	sbuf;
     int		nb;
     struct flock64 f;
-    struct fsxattr xattr;
+    struct fsxattr_t xattr;
     struct dioattr finfo;
     char	*b, *buf;
 
