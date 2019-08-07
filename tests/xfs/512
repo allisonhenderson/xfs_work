@@ -65,6 +65,14 @@ _require_scratch
 _require_attrs
 _require_xfs_io_error_injection "delayed_attr"
 
+
+#TODO: Remove this when done with sandbox devel                                 
+export XFS_IO_PROG="/home/achender/work_area/xfsprogs-dev/io/xfs_io"            
+export MKFS_XFS_PROG="/home/achender/work_area/xfsprogs-dev/mkfs/mkfs.xfs"
+export XFS_LOGPRINT_PROG="/home/achender/work_area/xfsprogs-dev/logprint/xfs_logprint"
+export XFS_REPAIR_PROG="/home/achender/work_area/xfsprogs-dev/repair/xfs_repair"
+export XFS_DB_PROG="/home/achender/work_area/xfsprogs-dev/db/xfs_db"
+
 rm -f $seqres.full
 _scratch_unmount >/dev/null 2>&1
 
