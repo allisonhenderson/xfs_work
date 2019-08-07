@@ -1,0 +1,102 @@
+#! /bin/bash
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (c) 2019, Oracle and/or its affiliates.  All Rights Reserved.
+#
+# FS QA Test No. 512
+#
+# Delayed attr log replay test
+#
+seq=`basename $0`
+seqres=$RESULT_DIR/$seq
+echo "QA output created by $seq"
+
+here=`pwd`
+tmp=/tmp/$$
+status=0	# success is the default!
+# get standard environment, filters and checks
+. ./common/rc
+. ./common/filter
+. ./common/attr
+. ./common/inject
+
+_cleanup()
+{
+	echo "*** unmount"
+	_scratch_unmount 2>/dev/null
+	rm -f $tmp.*
+}
+trap "_cleanup; exit \$status" 0 1 2 3 15
+
+_attr()
+{
+	${ATTR_PROG} $* 2>$tmp.err >$tmp.out
+	exit=$?
+	sed \
+	    -e "s#$SCRATCH_MNT[^ .:]*#<TESTFILE>#g" \
+	    -e "s#$tmp[^ :]*#<TMPFILE>#g;" \
+		$tmp.out
+	sed \
+	    -e "s#$SCRATCH_MNT[^ .:]*#<TESTFILE>#g" \
+	    -e "s#$tmp[^ :]*#<TMPFILE>#g;" \
+		$tmp.err 1>&2
+	return $exit
+}
+
+do_getfattr()
+{
+	_getfattr $* 2>$tmp.err >$tmp.out
+	exit=$?
+	sed \
+	    -e "s#$SCRATCH_MNT[^ .:]*#<TESTFILE>#g" \
+	    -e "s#$tmp[^ :]*#<TMPFILE>#g;" \
+		$tmp.out
+	sed \
+	    -e "s#$SCRATCH_MNT[^ .:]*#<TESTFILE>#g" \
+	    -e "s#$tmp[^ :]*#<TMPFILE>#g;" \
+		$tmp.err 1>&2
+	return $exit
+}
+
+# real QA test starts here
+_supported_fs xfs
+_supported_os Linux
+
+_require_scratch
+_require_attrs
+_require_xfs_io_error_injection "delayed_attr"
+
+rm -f $seqres.full
+_scratch_unmount >/dev/null 2>&1
+
+echo "*** mkfs"
+_scratch_mkfs_xfs >/dev/null \
+	|| _fail "mkfs failed"
+
+echo "*** mount FS"
+_scratch_mount
+
+testfile=$SCRATCH_MNT/testfile
+echo "*** make test file 1"
+
+touch $testfile.1
+
+echo "Inject error"
+_scratch_inject_error "delayed_attr"
+
+echo "Set attribute"
+echo "attr_value" | _attr -s "attr_name" $testfile.1 >/dev/null
+
+echo "FS should be shut down, touch will fail"
+touch $testfile.1
+
+echo "Remount to replay log"
+_scratch_inject_logprint >> $seqres.full
+
+echo "FS should be online, touch should succeed" 
+touch $testfile.1
+
+echo "Verify attr recovery"
+do_getfattr --absolute-names $testfile.1
+
+echo "*** done"
+exit
