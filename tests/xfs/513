@@ -79,6 +79,10 @@ then
     _fail "failed to create test protofile"
 fi
 
+#TODO: Remove this when done with sandbox devel
+export XFS_IO_PROG="/home/achender/work_area/xfsprogs-dev/io/xfs_io"
+export MKFS_XFS_PROG="$(type -P  /home/achender/work_area/xfsprogs-dev/mkfs/mkfs.xfs)"
+
 echo "*** create FS"
 
 rm -f $seqfull
