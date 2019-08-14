@@ -666,7 +666,7 @@ xfs_dir2_leafn_lookup_for_addname(
 		ASSERT(free->hdr.magic == cpu_to_be32(XFS_DIR2_FREE_MAGIC) ||
 		       free->hdr.magic == cpu_to_be32(XFS_DIR3_FREE_MAGIC));
 	}
-	length = xfs_dir2_data_entsize(mp, args->namelen);
+	length = xfs_dir2_data_entsize(mp, args->name.len);
 	/*
 	 * Loop over leaf entries with the right hash value.
 	 */
@@ -1911,7 +1911,7 @@ xfs_dir2_node_addname_int(
 	int			needscan = 0;	/* need to rescan data frees */
 	__be16			*tagp;		/* data entry tag pointer */
 
-	length = xfs_dir2_data_entsize(dp->i_mount, args->namelen);
+	length = xfs_dir2_data_entsize(dp->i_mount, args->name.len);
 	error = xfs_dir2_node_find_freeblk(args, fblk, &dbno, &fbp, &freehdr,
 					   &findex, length);
 	if (error)
@@ -1966,8 +1966,8 @@ xfs_dir2_node_addname_int(
 	/* Fill in the new entry and log it. */
 	dep = (xfs_dir2_data_entry_t *)dup;
 	dep->inumber = cpu_to_be64(args->inumber);
-	dep->namelen = args->namelen;
-	memcpy(dep->name, args->name, dep->namelen);
+	dep->namelen = args->name.len;
+	memcpy(dep->name, args->name.name, dep->namelen);
 	xfs_dir2_data_put_ftype(dp->i_mount, dep, args->filetype);
 	tagp = xfs_dir2_data_entry_tag_p(dp->i_mount, dep);
 	*tagp = cpu_to_be16((char *)dep - (char *)hdr);

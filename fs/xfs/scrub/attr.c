@@ -147,17 +147,17 @@ xchk_xattr_listent(
 		return;
 	}
 
-	args.flags = ATTR_KERNOTIME;
+	args.name.type = ATTR_KERNOTIME;
 	if (flags & XFS_ATTR_ROOT)
-		args.flags |= ATTR_ROOT;
+		args.name.type |= ATTR_ROOT;
 	else if (flags & XFS_ATTR_SECURE)
-		args.flags |= ATTR_SECURE;
+		args.name.type |= ATTR_SECURE;
 	args.geo = context->dp->i_mount->m_attr_geo;
 	args.whichfork = XFS_ATTR_FORK;
 	args.dp = context->dp;
-	args.name = name;
-	args.namelen = namelen;
-	args.hashval = xfs_da_hashname(args.name, args.namelen);
+	args.name.name = name;
+	args.name.len = namelen;
+	args.hashval = xfs_da_hashname(args.name.name, args.name.len);
 	args.trans = context->tp;
 	args.value = xchk_xattr_valuebuf(sx->sc);
 	args.valuelen = valuelen;

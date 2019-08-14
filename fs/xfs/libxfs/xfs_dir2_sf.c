@@ -387,7 +387,7 @@ xfs_dir2_sf_addname(
 	/*
 	 * Compute entry (and change in) size.
 	 */
-	incr_isize = xfs_dir2_sf_entsize(dp->i_mount, sfp, args->namelen);
+	incr_isize = xfs_dir2_sf_entsize(dp->i_mount, sfp, args->name.len);
 	objchange = 0;
 
 	/*
@@ -470,7 +470,7 @@ xfs_dir2_sf_addname_easy(
 	/*
 	 * Grow the in-inode space.
 	 */
-	xfs_idata_realloc(dp, xfs_dir2_sf_entsize(mp, sfp, args->namelen),
+	xfs_idata_realloc(dp, xfs_dir2_sf_entsize(mp, sfp, args->name.len),
 			  XFS_DATA_FORK);
 	/*
 	 * Need to set up again due to realloc of the inode data.
@@ -480,9 +480,9 @@ xfs_dir2_sf_addname_easy(
 	/*
 	 * Fill in the new entry.
 	 */
-	sfep->namelen = args->namelen;
+	sfep->namelen = args->name.len;
 	xfs_dir2_sf_put_offset(sfep, offset);
-	memcpy(sfep->name, args->name, sfep->namelen);
+	memcpy(sfep->name, args->name.name, sfep->namelen);
 	xfs_dir2_sf_put_ino(mp, sfp, sfep, args->inumber);
 	xfs_dir2_sf_put_ftype(mp, sfep, args->filetype);
 
@@ -540,7 +540,7 @@ xfs_dir2_sf_addname_hard(
 	 */
 	for (offset = args->geo->data_first_offset,
 	      oldsfep = xfs_dir2_sf_firstentry(oldsfp),
-	      add_datasize = xfs_dir2_data_entsize(mp, args->namelen),
+	      add_datasize = xfs_dir2_data_entsize(mp, args->name.len),
 	      eof = (char *)oldsfep == &buf[old_isize];
 	     !eof;
 	     offset = new_offset + xfs_dir2_data_entsize(mp, oldsfep->namelen),
@@ -570,9 +570,9 @@ xfs_dir2_sf_addname_hard(
 	/*
 	 * Fill in the new entry, and update the header counts.
 	 */
-	sfep->namelen = args->namelen;
+	sfep->namelen = args->name.len;
 	xfs_dir2_sf_put_offset(sfep, offset);
-	memcpy(sfep->name, args->name, sfep->namelen);
+	memcpy(sfep->name, args->name.name, sfep->namelen);
 	xfs_dir2_sf_put_ino(mp, sfp, sfep, args->inumber);
 	xfs_dir2_sf_put_ftype(mp, sfep, args->filetype);
 	sfp->count++;
@@ -615,7 +615,7 @@ xfs_dir2_sf_addname_pick(
 	int			used;		/* data bytes used */
 
 	sfp = (xfs_dir2_sf_hdr_t *)dp->i_df.if_u1.if_data;
-	size = xfs_dir2_data_entsize(mp, args->namelen);
+	size = xfs_dir2_data_entsize(mp, args->name.len);
 	offset = args->geo->data_first_offset;
 	sfep = xfs_dir2_sf_firstentry(sfp);
 	holefit = 0;
@@ -887,7 +887,7 @@ xfs_dir2_sf_lookup(
 	/*
 	 * Special case for .
 	 */
-	if (args->namelen == 1 && args->name[0] == '.') {
+	if (args->name.len == 1 && args->name.name[0] == '.') {
 		args->inumber = dp->i_ino;
 		args->cmpresult = XFS_CMP_EXACT;
 		args->filetype = XFS_DIR3_FT_DIR;
@@ -896,8 +896,8 @@ xfs_dir2_sf_lookup(
 	/*
 	 * Special case for ..
 	 */
-	if (args->namelen == 2 &&
-	    args->name[0] == '.' && args->name[1] == '.') {
+	if (args->name.len == 2 &&
+	    args->name.name[0] == '.' && args->name.name[1] == '.') {
 		args->inumber = xfs_dir2_sf_get_parent_ino(sfp);
 		args->cmpresult = XFS_CMP_EXACT;
 		args->filetype = XFS_DIR3_FT_DIR;
@@ -984,7 +984,7 @@ xfs_dir2_sf_removename(
 	 * Calculate sizes.
 	 */
 	byteoff = (int)((char *)sfep - (char *)sfp);
-	entsize = xfs_dir2_sf_entsize(mp, sfp, args->namelen);
+	entsize = xfs_dir2_sf_entsize(mp, sfp, args->name.len);
 	newsize = oldsize - entsize;
 	/*
 	 * Copy the part if any after the removed entry, sliding it down.
@@ -1085,12 +1085,12 @@ xfs_dir2_sf_replace(
 	} else
 		i8elevated = 0;
 
-	ASSERT(args->namelen != 1 || args->name[0] != '.');
+	ASSERT(args->name.len != 1 || args->name.name[0] != '.');
 	/*
 	 * Replace ..'s entry.
 	 */
-	if (args->namelen == 2 &&
-	    args->name[0] == '.' && args->name[1] == '.') {
+	if (args->name.len == 2 &&
+	    args->name.name[0] == '.' && args->name.name[1] == '.') {
 		ino = xfs_dir2_sf_get_parent_ino(sfp);
 		ASSERT(args->inumber != ino);
 		xfs_dir2_sf_put_parent_ino(sfp, args->inumber);

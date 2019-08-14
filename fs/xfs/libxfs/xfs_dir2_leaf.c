@@ -653,7 +653,7 @@ xfs_dir2_leaf_addname(
 	xfs_dir2_leaf_hdr_from_disk(dp->i_mount, &leafhdr, leaf);
 	ents = leafhdr.ents;
 	bestsp = xfs_dir2_leaf_bests_p(ltp);
-	length = xfs_dir2_data_entsize(dp->i_mount, args->namelen);
+	length = xfs_dir2_data_entsize(dp->i_mount, args->name.len);
 
 	/*
 	 * See if there are any entries with the same hash value
@@ -856,8 +856,8 @@ xfs_dir2_leaf_addname(
 	 */
 	dep = (xfs_dir2_data_entry_t *)dup;
 	dep->inumber = cpu_to_be64(args->inumber);
-	dep->namelen = args->namelen;
-	memcpy(dep->name, args->name, dep->namelen);
+	dep->namelen = args->name.len;
+	memcpy(dep->name, args->name.name, dep->namelen);
 	xfs_dir2_data_put_ftype(dp->i_mount, dep, args->filetype);
 	tagp = xfs_dir2_data_entry_tag_p(dp->i_mount, dep);
 	*tagp = cpu_to_be16((char *)dep - (char *)hdr);

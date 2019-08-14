@@ -74,14 +74,14 @@ xfs_ascii_ci_compname(
 	enum xfs_dacmp		result;
 	int			i;
 
-	if (args->namelen != len)
+	if (args->name.len != len)
 		return XFS_CMP_DIFFERENT;
 
 	result = XFS_CMP_EXACT;
 	for (i = 0; i < len; i++) {
-		if (args->name[i] == name[i])
+		if (args->name.name[i] == name[i])
 			continue;
-		if (tolower(args->name[i]) != tolower(name[i]))
+		if (tolower(args->name.name[i]) != tolower(name[i]))
 			return XFS_CMP_DIFFERENT;
 		result = XFS_CMP_CASE;
 	}
@@ -265,8 +265,7 @@ xfs_dir_createname(
 		return -ENOMEM;
 
 	args->geo = dp->i_mount->m_dir_geo;
-	args->name = name->name;
-	args->namelen = name->len;
+	memcpy(&args->name, name, sizeof(struct xfs_name));
 	args->filetype = name->type;
 	args->hashval = xfs_dir2_hashname(dp->i_mount, name);
 	args->inumber = inum;
@@ -361,8 +360,7 @@ xfs_dir_lookup(
 	 */
 	args = kmem_zalloc(sizeof(*args), KM_NOFS);
 	args->geo = dp->i_mount->m_dir_geo;
-	args->name = name->name;
-	args->namelen = name->len;
+	memcpy(&args->name, name, sizeof(struct xfs_name));
 	args->filetype = name->type;
 	args->hashval = xfs_dir2_hashname(dp->i_mount, name);
 	args->dp = dp;
@@ -433,8 +431,7 @@ xfs_dir_removename(
 		return -ENOMEM;
 
 	args->geo = dp->i_mount->m_dir_geo;
-	args->name = name->name;
-	args->namelen = name->len;
+	memcpy(&args->name, name, sizeof(struct xfs_name));
 	args->filetype = name->type;
 	args->hashval = xfs_dir2_hashname(dp->i_mount, name);
 	args->inumber = ino;
@@ -494,8 +491,7 @@ xfs_dir_replace(
 		return -ENOMEM;
 
 	args->geo = dp->i_mount->m_dir_geo;
-	args->name = name->name;
-	args->namelen = name->len;
+	memcpy(&args->name, name, sizeof(struct xfs_name));
 	args->filetype = name->type;
 	args->hashval = xfs_dir2_hashname(dp->i_mount, name);
 	args->inumber = inum;

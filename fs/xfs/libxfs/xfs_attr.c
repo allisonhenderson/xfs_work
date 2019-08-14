@@ -72,13 +72,12 @@ xfs_attr_args_init(
 	args->geo = dp->i_mount->m_attr_geo;
 	args->whichfork = XFS_ATTR_FORK;
 	args->dp = dp;
-	args->flags = flags;
-	args->name = name->name;
-	args->namelen = name->len;
-	if (args->namelen >= MAXNAMELEN)
+	memcpy(&args->name, name, sizeof(struct xfs_name));
+	args->name.type = flags;
+	if (args->name.len >= MAXNAMELEN)
 		return -EFAULT;		/* match IRIX behaviour */
 
-	args->hashval = xfs_da_hashname(args->name, args->namelen);
+	args->hashval = xfs_da_hashname(args->name.name, args->name.len);
 	return 0;
 }
 
@@ -236,7 +235,7 @@ xfs_attr_try_sf_addname(
 	 * Commit the shortform mods, and we're done.
 	 * NOTE: this is also the error path (EEXIST, etc).
 	 */
-	if (!error && (args->flags & ATTR_KERNOTIME) == 0)
+	if (!error && (args->name.type & ATTR_KERNOTIME) == 0)
 		xfs_trans_ichgtime(args->trans, dp, XFS_ICHGTIME_CHG);
 
 	if (mp->m_flags & XFS_MOUNT_WSYNC)
@@ -357,6 +356,9 @@ xfs_attr_set(
 	if (error)
 		return error;
 
+	/* Use name now stored in args */
+	name = &args.name;
+
 	args.value = value;
 	args.valuelen = valuelen;
 	args.op_flags = XFS_DA_OP_ADDNAME | XFS_DA_OP_OKNOENT;
@@ -372,7 +374,7 @@ xfs_attr_set(
 	 */
 	if (XFS_IFORK_Q(dp) == 0) {
 		int sf_size = sizeof(xfs_attr_sf_hdr_t) +
-			XFS_ATTR_SF_ENTSIZE_BYNAME(args.namelen, valuelen);
+			XFS_ATTR_SF_ENTSIZE_BYNAME(name->len, valuelen);
 
 		error = xfs_bmap_add_attrfork(dp, sf_size, rsvd);
 		if (error)
@@ -457,6 +459,9 @@ xfs_attr_remove(
 	if (error)
 		return error;
 
+	/* Use name now stored in args */
+	name = &args.name;
+
 	/*
 	 * we have no control over the attribute names that userspace passes us
 	 * to remove, so we have to allow the name lookup prior to attribute
@@ -532,10 +537,10 @@ xfs_attr_shortform_addname(xfs_da_args_t *args)
 	trace_xfs_attr_sf_addname(args);
 
 	retval = xfs_attr_shortform_lookup(args);
-	if ((args->flags & ATTR_REPLACE) && (retval == -ENOATTR)) {
+	if ((args->name.type & ATTR_REPLACE) && (retval == -ENOATTR)) {
 		return retval;
 	} else if (retval == -EEXIST) {
-		if (args->flags & ATTR_CREATE)
+		if (args->name.type & ATTR_CREATE)
 			return retval;
 		retval = xfs_attr_shortform_remove(args);
 		if (retval)
@@ -545,15 +550,15 @@ xfs_attr_shortform_addname(xfs_da_args_t *args)
 		 * that the leaf format add routine won't trip over the attr
 		 * not being around.
 		 */
-		args->flags &= ~ATTR_REPLACE;
+		args->name.type &= ~ATTR_REPLACE;
 	}
 
-	if (args->namelen >= XFS_ATTR_SF_ENTSIZE_MAX ||
+	if (args->name.len >= XFS_ATTR_SF_ENTSIZE_MAX ||
 	    args->valuelen >= XFS_ATTR_SF_ENTSIZE_MAX)
 		return -ENOSPC;
 
 	newsize = XFS_ATTR_SF_TOTSIZE(args->dp);
-	newsize += XFS_ATTR_SF_ENTSIZE_BYNAME(args->namelen, args->valuelen);
+	newsize += XFS_ATTR_SF_ENTSIZE_BYNAME(args->name.len, args->valuelen);
 
 	forkoff = xfs_attr_shortform_bytesfit(args->dp, newsize);
 	if (!forkoff)
@@ -598,11 +603,11 @@ xfs_attr_leaf_addname(
 	 * the given flags produce an error or call for an atomic rename.
 	 */
 	retval = xfs_attr3_leaf_lookup_int(bp, args);
-	if ((args->flags & ATTR_REPLACE) && (retval == -ENOATTR)) {
+	if ((args->name.type & ATTR_REPLACE) && (retval == -ENOATTR)) {
 		xfs_trans_brelse(args->trans, bp);
 		return retval;
 	} else if (retval == -EEXIST) {
-		if (args->flags & ATTR_CREATE) {	/* pure create op */
+		if (args->name.type & ATTR_CREATE) {	/* pure create op */
 			xfs_trans_brelse(args->trans, bp);
 			return retval;
 		}
@@ -872,10 +877,10 @@ restart:
 		goto out;
 	blk = &state->path.blk[ state->path.active-1 ];
 	ASSERT(blk->magic == XFS_ATTR_LEAF_MAGIC);
-	if ((args->flags & ATTR_REPLACE) && (retval == -ENOATTR)) {
+	if ((args->name.type & ATTR_REPLACE) && (retval == -ENOATTR)) {
 		goto out;
 	} else if (retval == -EEXIST) {
-		if (args->flags & ATTR_CREATE)
+		if (args->name.type & ATTR_CREATE)
 			goto out;
 
 		trace_xfs_attr_node_replace(args);

@@ -1633,7 +1633,7 @@ DECLARE_EVENT_CLASS(xfs_da_class,
 	TP_STRUCT__entry(
 		__field(dev_t, dev)
 		__field(xfs_ino_t, ino)
-		__dynamic_array(char, name, args->namelen)
+		__dynamic_array(char, name, args->name.len)
 		__field(int, namelen)
 		__field(xfs_dahash_t, hashval)
 		__field(xfs_ino_t, inumber)
@@ -1642,9 +1642,10 @@ DECLARE_EVENT_CLASS(xfs_da_class,
 	TP_fast_assign(
 		__entry->dev = VFS_I(args->dp)->i_sb->s_dev;
 		__entry->ino = args->dp->i_ino;
-		if (args->namelen)
-			memcpy(__get_str(name), args->name, args->namelen);
-		__entry->namelen = args->namelen;
+		if (args->name.len)
+			memcpy(__get_str(name), args->name.name,
+			       args->name.len);
+		__entry->namelen = args->name.len;
 		__entry->hashval = args->hashval;
 		__entry->inumber = args->inumber;
 		__entry->op_flags = args->op_flags;
@@ -1697,7 +1698,7 @@ DECLARE_EVENT_CLASS(xfs_attr_class,
 	TP_STRUCT__entry(
 		__field(dev_t, dev)
 		__field(xfs_ino_t, ino)
-		__dynamic_array(char, name, args->namelen)
+		__dynamic_array(char, name, args->name.len)
 		__field(int, namelen)
 		__field(int, valuelen)
 		__field(xfs_dahash_t, hashval)
@@ -1707,12 +1708,13 @@ DECLARE_EVENT_CLASS(xfs_attr_class,
 	TP_fast_assign(
 		__entry->dev = VFS_I(args->dp)->i_sb->s_dev;
 		__entry->ino = args->dp->i_ino;
-		if (args->namelen)
-			memcpy(__get_str(name), args->name, args->namelen);
-		__entry->namelen = args->namelen;
+		if (args->name.len)
+			memcpy(__get_str(name), args->name.name,
+			       args->name.len);
+		__entry->namelen = args->name.len;
 		__entry->valuelen = args->valuelen;
 		__entry->hashval = args->hashval;
-		__entry->flags = args->flags;
+		__entry->flags = args->name.type;
 		__entry->op_flags = args->op_flags;
 	),
 	TP_printk("dev %d:%d ino 0x%llx name %.*s namelen %d valuelen %d "

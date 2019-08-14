@@ -355,7 +355,7 @@ xfs_dir2_block_addname(
 	if (error)
 		return error;
 
-	len = xfs_dir2_data_entsize(dp->i_mount, args->namelen);
+	len = xfs_dir2_data_entsize(dp->i_mount, args->name.len);
 
 	/*
 	 * Set up pointers to parts of the block.
@@ -539,8 +539,8 @@ xfs_dir2_block_addname(
 	 * Create the new data entry.
 	 */
 	dep->inumber = cpu_to_be64(args->inumber);
-	dep->namelen = args->namelen;
-	memcpy(dep->name, args->name, args->namelen);
+	dep->namelen = args->name.len;
+	memcpy(dep->name, args->name.name, args->name.len);
 	xfs_dir2_data_put_ftype(dp->i_mount, dep, args->filetype);
 	tagp = xfs_dir2_data_entry_tag_p(dp->i_mount, dep);
 	*tagp = cpu_to_be16((char *)dep - (char *)hdr);
