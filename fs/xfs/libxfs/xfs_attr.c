@@ -437,6 +437,14 @@ xfs_attr_set(
 		goto out_trans_cancel;
 
 	xfs_trans_ijoin(args.trans, dp, 0);
+
+	error = xfs_has_attr(&args);
+	if (error == -EEXIST && (name->type & ATTR_CREATE))
+		goto out_trans_cancel;
+
+	if (error == -ENOATTR && (name->type & ATTR_REPLACE))
+		goto out_trans_cancel;
+
 	error = xfs_attr_set_args(&args);
 	if (error)
 		goto out_trans_cancel;
@@ -524,6 +532,10 @@ xfs_attr_remove(
 	 * blocks not allocate in the common case.
 	 */
 	xfs_trans_ijoin(args.trans, dp, 0);
+
+	error = xfs_has_attr(&args);
+	if (error != -EEXIST)
+		goto out;
 
 	error = xfs_attr_remove_args(&args);
 	if (error)
