@@ -544,6 +544,7 @@ xfs_attr_set(
 	int			flags)
 {
 	struct xfs_mount	*mp = dp->i_mount;
+	struct xfs_sb		*sbp = &mp->m_sb;
 	struct xfs_da_args	args;
 	struct xfs_trans_res	tres;
 	int			rsvd = (flags & ATTR_ROOT) != 0;
@@ -613,9 +614,24 @@ xfs_attr_set(
 	if (error == -ENOATTR && (name->type & ATTR_REPLACE))
 		goto out_trans_cancel;
 
-	error = xfs_attr_set_args(&args);
+	if (xfs_sb_version_hasdelattr(sbp) && name->type & ATTR_REPLACE) {
+		name->type &= ~ATTR_REPLACE;
+
+		error = xfs_attr_remove_deferred(dp, args.trans, name);
+		if (error)
+			goto out_trans_cancel;
+
+		name->type |= ATTR_CREATE;
+	}
+
+	if (xfs_sb_version_hasdelattr(sbp))
+		error = xfs_attr_set_deferred(dp, args.trans, name, value,
+					      valuelen);
+	else
+		error = xfs_attr_set_args(&args);
 	if (error)
 		goto out_trans_cancel;
+
 	if (!args.trans) {
 		/* shortform attribute has already been committed */
 		goto out_unlock;
@@ -721,6 +737,7 @@ xfs_attr_remove(
 	int			flags)
 {
 	struct xfs_mount	*mp = dp->i_mount;
+	struct xfs_sb		*sbp = &mp->m_sb;
 	struct xfs_da_args	args;
 	int			error;
 
@@ -769,7 +786,10 @@ xfs_attr_remove(
 	if (error != -EEXIST)
 		goto out;
 
-	error = xfs_attr_remove_args(&args);
+	if (xfs_sb_version_hasdelattr(sbp))
+		error = xfs_attr_remove_deferred(dp, args.trans, name);
+	else
+		error = xfs_attr_remove_args(&args);
 	if (error)
 		goto out;
 
