@@ -262,6 +262,13 @@ _require_projid32bit()
 	   || _notrun "mkfs.xfs doesn't have projid32bit feature"
 }
 
+_require_delattr()
+{
+	echo "_require_delattr"
+	_scratch_mkfs_xfs_supported -n delattr >/dev/null 2>&1 \
+	   || _notrun "mkfs.xfs doesn't have delattr feature"
+}
+
 _require_projid16bit()
 {
 	_scratch_mkfs_xfs_supported -i projid32bit=0 >/dev/null 2>&1 \
