@@ -1,0 +1,27 @@
+QA output created by 517
+*** create FS
+*** check FS
+*** mount FS
+
+Error inject test
+Create files
+*** testfolder1 OK
+*** testfolder1/file4 OK
+*** testfolder1/file4 OK
+*** Verified parent pointer: name:file4, namelen:5
+*** Parent pointer OK for child testfolder1/file4
+Inject error
+Move files
+mv: cannot move '/mnt/scratch/testfolder1/file4' to '/mnt/scratch/testfolder2/file5': Input/output error
+FS should be shut down, touch will fail
+touch: cannot touch 'SCRATCH_MNT/testfolder2/file5': Input/output error
+Remount to replay log
+FS should be online, touch should succeed
+Check files again
+*** testfolder2 OK
+*** testfolder2/file5 OK
+*** testfolder2/file5 OK
+*** Verified parent pointer: name:file5, namelen:5
+*** Parent pointer OK for child testfolder2/file5
+*** unmount FS
+*** done
