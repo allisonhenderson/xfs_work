@@ -61,6 +61,14 @@ enum xfs_dacmp {
 enum xfs_delattr_state {
 	XFS_DAS_RM_SHRINK,	/* We are shrinking the tree */
 	XFS_DAS_RMTVAL_REMOVE,	/* We are removing remote value blocks */
+	XFS_DAS_ADD_LEAF,	/* We are adding a leaf attr */
+	XFS_DAS_FOUND_LBLK,	/* We found leaf blk for attr */
+	XFS_DAS_LEAF_TO_NODE,	/* Converted leaf to node */
+	XFS_DAS_FOUND_NBLK,	/* We found node blk for attr */
+	XFS_DAS_ALLOC_LEAF,	/* We are allocating leaf blocks */
+	XFS_DAS_FLIP_LFLAG,	/* Flipped leaf INCOMPLETE attr flag */
+	XFS_DAS_ALLOC_NODE,	/* We are allocating node blocks */
+	XFS_DAS_FLIP_NFLAG,	/* Flipped node INCOMPLETE attr flag */
 };
 
 /*
@@ -72,8 +80,13 @@ enum xfs_delattr_state {
  * Context used for keeping track of delayed attribute operations
  */
 struct xfs_delattr_context {
+	struct xfs_bmbt_irec	map;
+	struct xfs_buf		*leaf_bp;
+	xfs_fileoff_t		lfileoff;
 	struct xfs_da_state	*da_state;
 	struct xfs_da_state_blk *blk;
+	xfs_dablk_t		lblkno;
+	int			blkcnt;
 	unsigned int		flags;
 	enum xfs_delattr_state	dela_state;
 };
