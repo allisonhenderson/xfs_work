@@ -50,9 +50,39 @@ enum xfs_dacmp {
 };
 
 /*
+ * Enum values for xfs_delattr_context.da_state
+ *
+ * These values are used by delayed attribute operations to keep track  of where
+ * they were before they returned -EAGAIN.  A return code of -EAGAIN signals the
+ * calling function to roll the transaction, and then recall the subroutine to
+ * finish the operation.  The enum is then used by the subroutine to jump back
+ * to where it was and resume executing where it left off.
+ */
+enum xfs_delattr_state {
+	XFS_DAS_RM_SHRINK,	/* We are shrinking the tree */
+	XFS_DAS_RMTVAL_REMOVE,	/* We are removing remote value blocks */
+};
+
+/*
+ * Defines for xfs_delattr_context.flags
+ */
+#define	XFS_DAC_FINISH_TRANS	0x1 /* indicates to finish the transaction */
+
+/*
+ * Context used for keeping track of delayed attribute operations
+ */
+struct xfs_delattr_context {
+	struct xfs_da_state	*da_state;
+	struct xfs_da_state_blk *blk;
+	unsigned int		flags;
+	enum xfs_delattr_state	dela_state;
+};
+
+/*
  * Structure to ease passing around component names.
  */
 typedef struct xfs_da_args {
+	struct xfs_delattr_context dac; /* context used for delay attr ops */
 	struct xfs_da_geometry *geo;	/* da block geometry */
 	struct xfs_name	name;		/* name, length and argument  flags*/
 	uint8_t		filetype;	/* filetype of inode for directories */
