@@ -254,6 +254,19 @@ xfs_attr_try_sf_addname(
 }
 
 /*
+ * Check to see if the attr should be upgraded from non-existent or shortform to
+ * single-leaf-block attribute list.
+ */
+static inline bool
+xfs_attr_fmt_needs_update(
+	struct xfs_inode    *dp)
+{
+	return dp->i_d.di_aformat == XFS_DINODE_FMT_LOCAL ||
+	      (dp->i_d.di_aformat == XFS_DINODE_FMT_EXTENTS &&
+	      dp->i_d.di_anextents == 0);
+}
+
+/*
  * Set the attribute specified in @args.
  */
 int
@@ -342,40 +355,40 @@ xfs_attr_set_iter(
 	}
 
 	/*
-	 * If the attribute list is non-existent or a shortform list,
-	 * upgrade it to a single-leaf-block attribute list.
+	 * If the attribute list is already in leaf format, jump straight to
+	 * leaf handling.  Otherwise, try to add the attribute to the shortform
+	 * list; if there's no room then convert the list to leaf format and try
+	 * again.
 	 */
-	if (dp->i_d.di_aformat == XFS_DINODE_FMT_LOCAL ||
-	    (dp->i_d.di_aformat == XFS_DINODE_FMT_EXTENTS &&
-	     dp->i_d.di_anextents == 0)) {
+	if (!xfs_attr_fmt_needs_update(dp))
+		goto add_leaf;
 
-		/*
-		 * Try to add the attr to the attribute list in the inode.
-		 */
-		error = xfs_attr_try_sf_addname(dp, args);
+	/*
+	 * Try to add the attr to the attribute list in the inode.
+	 */
+	error = xfs_attr_try_sf_addname(dp, args);
 
-		/* Should only be 0, -EEXIST or ENOSPC */
-		if (error != -ENOSPC)
-			return error;
+	/* Should only be 0, -EEXIST or ENOSPC */
+	if (error != -ENOSPC)
+		return error;
 
-		/*
-		 * It won't fit in the shortform, transform to a leaf block.
-		 * GROT: another possible req'mt for a double-split btree op.
-		 */
-		error = xfs_attr_shortform_to_leaf(args, leaf_bp);
-		if (error)
-			return error;
+	/*
+	 * It won't fit in the shortform, transform to a leaf block.
+	 * GROT: another possible req'mt for a double-split btree op.
+	 */
+	error = xfs_attr_shortform_to_leaf(args, leaf_bp);
+	if (error)
+		return error;
 
-		/*
-		 * Prevent the leaf buffer from being unlocked so that a
-		 * concurrent AIL push cannot grab the half-baked leaf
-		 * buffer and run into problems with the write verifier.
-		 */
-		xfs_trans_bhold(args->trans, *leaf_bp);
-		args->dac.flags |= XFS_DAC_FINISH_TRANS;
-		args->dac.dela_state = XFS_DAS_ADD_LEAF;
-		return -EAGAIN;
-	}
+	/*
+	 * Prevent the leaf buffer from being unlocked so that a
+	 * concurrent AIL push cannot grab the half-baked leaf
+	 * buffer and run into problems with the write verifier.
+	 */
+	xfs_trans_bhold(args->trans, *leaf_bp);
+	args->dac.flags |= XFS_DAC_FINISH_TRANS;
+	args->dac.dela_state = XFS_DAS_ADD_LEAF;
+	return -EAGAIN;
 
 add_leaf:
 
