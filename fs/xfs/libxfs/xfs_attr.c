@@ -885,7 +885,7 @@ das_flip_flag:
 		xfs_attr_rmtval_invalidate(args);
 das_rm_lblk:
 		if (args->rmtblkno) {
-			error = __xfs_attr_rmtval_remove(args);
+			error = xfs_attr_rmtval_remove(args);
 
 			if (error == -EAGAIN) {
 				dac->dela_state = XFS_DAS_RM_LBLK;
@@ -1259,7 +1259,7 @@ das_flip_flag:
 
 das_rm_nblk:
 		if (args->rmtblkno) {
-			error = __xfs_attr_rmtval_remove(args);
+			error = xfs_attr_rmtval_remove(args);
 
 			if (error == -EAGAIN) {
 				dac->dela_state = XFS_DAS_RM_NBLK;
@@ -1438,7 +1438,7 @@ xfs_attr_node_removename_rmt (
 	/*
 	 * May return -EAGAIN to request that the caller recall this function
 	 */
-	error = __xfs_attr_rmtval_remove(args);
+	error = xfs_attr_rmtval_remove(args);
 	if (error)
 		return error;
 
