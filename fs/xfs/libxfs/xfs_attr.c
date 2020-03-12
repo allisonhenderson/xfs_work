@@ -25,6 +25,7 @@
 #include "xfs_trans_space.h"
 #include "xfs_trace.h"
 #include "xfs_attr_item.h"
+#include "xfs_attr.h"
 
 /*
  * xfs_attr.c
@@ -629,6 +630,96 @@ out_trans_cancel:
 	if (args->trans)
 		xfs_trans_cancel(args->trans);
 	goto out_unlock;
+}
+
+STATIC int
+xfs_attr_item_init(
+	struct xfs_inode	*dp,		/* inode for attr operation */
+	struct xfs_trans	*tp,		/* transaction for attr op */
+	const unsigned char	*name,		/* attr name */
+	unsigned int		namelen,	/* attr namelen */
+	unsigned int		flags,		/* attr flags */
+	const unsigned char	*value,		/* attr value */
+	unsigned int		valuelen,	/* attr value len */
+	unsigned int		op_flags,	/* op flag (set or remove) */
+	struct xfs_attr_item	**attr)		/* new xfs_attr_item */
+{
+
+	struct xfs_attr_item	*new;
+	char			*name_value;
+
+	/*
+	 * All set operations must have a name but not necessarily a value.
+	 */
+	if (!namelen) {
+		ASSERT(0);
+		return -EINVAL;
+	}
+
+	new = kmem_alloc_large(XFS_ATTR_ITEM_SIZEOF(namelen, valuelen),
+			 KM_NOFS);
+	name_value = ((char *)new) + sizeof(struct xfs_attr_item);
+	memset(new, 0, XFS_ATTR_ITEM_SIZEOF(namelen, valuelen));
+	new->xattri_ip = dp;
+	new->xattri_op_flags = op_flags;
+	new->xattri_name_len = namelen;
+	new->xattri_value_len = valuelen;
+	new->xattri_flags = flags;
+	memcpy(&name_value[0], name, namelen);
+	new->xattri_name = name_value;
+	new->xattri_value = name_value + namelen;
+
+	if (valuelen > 0)
+		memcpy(&name_value[namelen], value, valuelen);
+
+	*attr = new;
+	return 0;
+}
+
+/* Sets an attribute for an inode as a deferred operation */
+int
+xfs_attr_set_deferred(
+	struct xfs_inode	*dp,
+	struct xfs_trans	*tp,
+	const unsigned char	*name,
+	unsigned int		namelen,
+	unsigned int		flags,
+	const unsigned char	*value,
+	unsigned int		valuelen)
+{
+	struct xfs_attr_item	*new;
+	int			error = 0;
+
+	error = xfs_attr_item_init(dp, tp, name, namelen, flags, value,
+				   valuelen, XFS_ATTR_OP_FLAGS_SET, &new);
+	if (error)
+		return error;
+
+	xfs_defer_add(tp, XFS_DEFER_OPS_TYPE_ATTR, &new->xattri_list);
+
+	return 0;
+}
+
+/* Removes an attribute for an inode as a deferred operation */
+int
+xfs_attr_remove_deferred(
+	struct xfs_inode        *dp,
+	struct xfs_trans	*tp,
+	const unsigned char	*name,
+	unsigned int		namelen,
+	unsigned int		flags)
+{
+
+	struct xfs_attr_item *new;
+
+	int error  = xfs_attr_item_init(dp, tp, name, namelen, flags, NULL, 0,
+				  XFS_ATTR_OP_FLAGS_REMOVE, &new);
+	if (error)
+		return error;
+
+	xfs_defer_add(tp, XFS_DEFER_OPS_TYPE_ATTR, &new->xattri_list);
+
+	return 0;
 }
 
 /*========================================================================
