@@ -19,6 +19,7 @@
 #include "xfs_bmap_btree.h"
 #include "xfs_bmap.h"
 #include "xfs_attr_sf.h"
+#include "xfs_attr.h"
 #include "xfs_attr_remote.h"
 #include "xfs_attr.h"
 #include "xfs_attr_leaf.h"
