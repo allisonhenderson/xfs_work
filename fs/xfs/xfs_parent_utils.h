@@ -23,4 +23,8 @@
 int xfs_parent_add_deferred(struct xfs_inode *parent, struct xfs_trans *tp,
 	       struct xfs_inode *child, const unsigned char *child_name,
 	       unsigned int child_namelen, uint32_t diroffset);
+int xfs_parent_remove_deferred(struct xfs_inode *parent,
+			       struct xfs_trans *tp,
+			       struct xfs_inode *child,
+			       xfs_dir2_dataptr_t diroffset);
 #endif	/* __XFS_PARENT_UTILS_H__ */
