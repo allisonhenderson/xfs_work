@@ -52,3 +52,20 @@ xfs_parent_add_deferred(
 				     child_namelen);
 }
 
+/*
+ * Remove a parent record from a child inode.
+ */
+int
+xfs_parent_remove_deferred(
+	struct xfs_inode		*parent,
+	struct xfs_trans		*tp,
+	struct xfs_inode		*child,
+	xfs_dir2_dataptr_t		diroffset)
+{
+	struct xfs_parent_name_rec	rec;
+
+	xfs_init_parent_name_rec(&rec, parent, diroffset);
+	return xfs_attr_remove_deferred(child, tp, (const char *)&rec,
+					sizeof(rec), XFS_ATTR_PARENT);
+}
+
