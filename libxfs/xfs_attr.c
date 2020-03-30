@@ -1222,6 +1222,28 @@ int xfs_attr_node_removename_setup(
 	return 0;
 }
 
+STATIC int
+xfs_attr_node_removename_rmt (
+	struct xfs_da_args	*args,
+	struct xfs_da_state	*state)
+{
+	int			error = 0;
+
+	error = xfs_attr_rmtval_remove(args);
+	if (error)
+		return error;
+
+	/*
+	 * Refill the state structure with buffers, the prior calls
+	 * released our buffers.
+	 */
+	error = xfs_attr_refillstate(state);
+	if (error)
+		return error;
+
+	return 0;
+}
+
 /*
  * Remove a name from a B-tree attribute list.
  *
@@ -1250,15 +1272,7 @@ xfs_attr_node_removename(
 	 * overflow the maximum size of a transaction and/or hit a deadlock.
 	 */
 	if (args->rmtblkno > 0) {
-		error = xfs_attr_rmtval_remove(args);
-		if (error)
-			goto out;
-
-		/*
-		 * Refill the state structure with buffers, the prior calls
-		 * released our buffers.
-		 */
-		error = xfs_attr_refillstate(state);
+		error = xfs_attr_node_removename_rmt(args, state);
 		if (error)
 			goto out;
 	}
