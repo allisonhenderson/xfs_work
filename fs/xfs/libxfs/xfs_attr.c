@@ -282,6 +282,7 @@ xfs_attr_set_iter(
 	struct xfs_inode		*dp = args->dp;
 	struct xfs_buf			**leaf_bp = &attr->xattri_leaf_bp;
 	int				error = 0;
+	int				sf_size;
 
 	/* State machine switch */
 	switch (attr->xattri_dela_state) {
@@ -298,6 +299,20 @@ xfs_attr_set_iter(
 	default:
 		ASSERT(attr->xattri_dela_state != XFS_DAS_RM_SHRINK);
 		break;
+	}
+
+	/*
+	 * New inodes may not have an attribute fork yet. So set the attribute
+	 * fork appropriately
+	 */
+	if (XFS_IFORK_Q((args->dp)) == 0) {
+		sf_size = sizeof(struct xfs_attr_sf_hdr) +
+				 xfs_attr_sf_entsize_byname(args->namelen,
+							    args->valuelen);
+		xfs_bmap_set_attrforkoff(args->dp, sf_size, NULL);
+		args->dp->i_afp = kmem_cache_zalloc(xfs_ifork_zone, 0);
+		args->dp->i_afp->if_flags = XFS_IFEXTENTS;
+		args->dp->i_afp->if_format = XFS_DINODE_FMT_EXTENTS;
 	}
 
 	/*
