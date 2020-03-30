@@ -334,6 +334,7 @@ xfs_attr_set_iter(
 	struct xfs_da_args		*args = dac->da_args;
 	struct xfs_inode		*dp = args->dp;
 	int				error = 0;
+	int				sf_size;
 
 	/* State machine switch */
 	switch (dac->dela_state) {
@@ -346,6 +347,19 @@ xfs_attr_set_iter(
 		goto das_node;
 	default:
 		break;
+	}
+
+	/*
+	 * New inodes may not have an attribute fork yet. So set the attribute
+	 * fork appropriately
+	 */
+	if (XFS_IFORK_Q((args->dp)) == 0) {
+		sf_size = sizeof(struct xfs_attr_sf_hdr) +
+				 XFS_ATTR_SF_ENTSIZE_BYNAME(args->namelen,
+							    args->valuelen);
+		xfs_bmap_set_attrforkoff(args->dp, sf_size, NULL);
+		args->dp->i_afp = kmem_zone_zalloc(xfs_ifork_zone, 0);
+		args->dp->i_afp->if_flags = XFS_IFEXTENTS;
 	}
 
 	/*
