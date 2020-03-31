@@ -517,6 +517,7 @@ xfs_attr_set(
 {
 	struct xfs_inode	*dp = args->dp;
 	struct xfs_mount	*mp = dp->i_mount;
+	struct xfs_sb		*sbp = &mp->m_sb;
 	struct xfs_trans_res	tres;
 	bool			rsvd = (args->attr_filter & XFS_ATTR_ROOT);
 	int			error, local;
@@ -602,9 +603,17 @@ xfs_attr_set(
 		if (error != -ENOATTR && error != -EEXIST)
 			goto out_trans_cancel;
 
-		error = xfs_attr_set_args(args);
+		if (xfs_sb_version_hasdelattr(sbp))
+			error = xfs_attr_set_deferred(dp, args->trans,
+					      args->name, args->namelen,
+					      args->attr_filter, args->value,
+					      args->valuelen);
+		else
+			error = xfs_attr_set_args(args);
+
 		if (error)
 			goto out_trans_cancel;
+
 		/* shortform attribute has already been committed */
 		if (!args->trans)
 			goto out_unlock;
@@ -613,7 +622,13 @@ xfs_attr_set(
 		if (error != -EEXIST)
 			goto out_trans_cancel;
 
-		error = xfs_attr_remove_args(args);
+		if (xfs_sb_version_hasdelattr(sbp))
+			error = xfs_attr_remove_deferred(dp, args->trans,
+							 args->name,
+							 args->namelen,
+							 args->attr_filter);
+		else
+			error = xfs_attr_remove_args(args);
 		if (error)
 			goto out_trans_cancel;
 	}
