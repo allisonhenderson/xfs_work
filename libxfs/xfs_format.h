@@ -573,6 +573,10 @@ static inline bool xfs_sb_version_hasdelattr(struct xfs_sb *sbp)
 		(sbp->sb_features_log_incompat &
 		XFS_SB_FEAT_INCOMPAT_LOG_DELATTR));
 }
+static inline bool xfs_sb_version_hasparent(struct xfs_sb *sbp)
+{
+	return false; /* We'll enable this at the end of the set */
+}
 
 /*
  * Inode btree block counter.  We record the number of inobt and finobt blocks
