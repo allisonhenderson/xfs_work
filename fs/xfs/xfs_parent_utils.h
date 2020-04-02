@@ -27,4 +27,6 @@ int xfs_parent_remove_deferred(struct xfs_inode *parent,
 			       struct xfs_trans *tp,
 			       struct xfs_inode *child,
 			       xfs_dir2_dataptr_t diroffset);
+int xfs_attr_get_parent_pointer(struct xfs_inode *ip,
+				struct xfs_pptr_info *ppi);
 #endif	/* __XFS_PARENT_UTILS_H__ */
