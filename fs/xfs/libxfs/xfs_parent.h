@@ -32,4 +32,6 @@ void xfs_init_parent_name_irec(struct xfs_parent_name_irec *irec,
 int xfs_parent_add(struct xfs_inode *parent,
 		   struct xfs_inode *child, const unsigned char child_name,
 		   uint32_t child_namelen, uint32_t diroffset);
+void xfs_init_parent_ptr(struct xfs_parent_ptr *xpp,
+			 struct xfs_parent_name_rec *rec);
 #endif	/* __XFS_PARENT_H__ */
