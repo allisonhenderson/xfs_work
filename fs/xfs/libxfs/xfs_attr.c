@@ -669,6 +669,10 @@ xfs_attr_leaf_addname(
 		args->rmtblkcnt = args->rmtblkcnt2;
 		args->rmtvaluelen = args->rmtvaluelen2;
 		if (args->rmtblkno) {
+			error = xfs_attr_rmtval_invalidate(args);
+			if (error)
+				return error;
+
 			error = xfs_attr_rmtval_remove(args);
 			if (error)
 				return error;
@@ -1027,6 +1031,10 @@ restart:
 		args->rmtblkcnt = args->rmtblkcnt2;
 		args->rmtvaluelen = args->rmtvaluelen2;
 		if (args->rmtblkno) {
+			error = xfs_attr_rmtval_invalidate(args);
+			if (error)
+				return error;
+
 			error = xfs_attr_rmtval_remove(args);
 			if (error)
 				return error;
@@ -1151,6 +1159,10 @@ xfs_attr_node_removename(
 		error = xfs_trans_roll_inode(&args->trans, args->dp);
 		if (error)
 			goto out;
+
+		error = xfs_attr_rmtval_invalidate(args);
+		if (error)
+			return error;
 
 		error = xfs_attr_rmtval_remove(args);
 		if (error)
