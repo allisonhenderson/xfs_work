@@ -53,11 +53,20 @@ STATIC int xfs_attr_leaf_hasname(struct xfs_da_args *args, struct xfs_buf **bp);
  */
 STATIC int xfs_attr_node_get(xfs_da_args_t *args);
 STATIC int xfs_attr_node_addname(xfs_da_args_t *args);
-STATIC int xfs_attr_node_removename(xfs_da_args_t *args);
+STATIC int xfs_attr_node_removename(struct xfs_delattr_context *dac);
 STATIC int xfs_attr_node_hasname(xfs_da_args_t *args,
 				 struct xfs_da_state **state);
 STATIC int xfs_attr_fillstate(xfs_da_state_t *state);
 STATIC int xfs_attr_refillstate(xfs_da_state_t *state);
+
+void
+xfs_delattr_context_init(
+	struct xfs_delattr_context	*dac,
+	struct xfs_da_args		*args)
+{
+	memset(dac, 0, sizeof(struct xfs_delattr_context));
+	dac->da_args = args;
+}
 
 int
 xfs_inode_hasattr(
@@ -263,6 +272,18 @@ xfs_attr_set_shortform(
 	return 0;
 }
 
+int xfs_attr_defer_finish(
+	struct xfs_delattr_context      *dac)
+{
+	struct xfs_da_args              *args = dac->da_args;
+
+	if (!(dac->flags & XFS_DAC_DEFER_FINISH))
+		return 0;
+
+	dac->flags &= ~XFS_DAC_DEFER_FINISH;
+	return xfs_defer_finish(&args->trans);
+}
+
 /*
  * Set the attribute specified in @args.
  */
@@ -363,23 +384,57 @@ xfs_has_attr(
  */
 int
 xfs_attr_remove_args(
-	struct xfs_da_args      *args)
+	struct xfs_da_args	*args)
 {
-	struct xfs_inode	*dp = args->dp;
-	int			error;
+	int			error = 0;
+	struct			xfs_delattr_context dac;
 
-	if (!xfs_inode_hasattr(dp)) {
-		error = -ENOATTR;
-	} else if (dp->i_d.di_aformat == XFS_DINODE_FMT_LOCAL) {
-		ASSERT(dp->i_afp->if_flags & XFS_IFINLINE);
-		error = xfs_attr_shortform_remove(args);
-	} else if (xfs_bmap_one_block(dp, XFS_ATTR_FORK)) {
-		error = xfs_attr_leaf_removename(args);
-	} else {
-		error = xfs_attr_node_removename(args);
-	}
+	xfs_delattr_context_init(&dac, args);
+
+	do {
+		error = xfs_attr_remove_iter(&dac);
+		if (error != -EAGAIN)
+			break;
+
+		error = xfs_attr_defer_finish(&dac);
+		if (error)
+			break;
+
+		error = xfs_trans_roll_inode(&args->trans, args->dp);
+		if (error)
+			break;
+	} while (true);
 
 	return error;
+}
+
+/*
+ * Remove the attribute specified in @args.
+ *
+ * This function may return -EAGAIN to signal that the transaction needs to be
+ * rolled.  Callers should continue calling this function until they receive a
+ * return value other than -EAGAIN.
+ */
+int
+xfs_attr_remove_iter(
+	struct xfs_delattr_context *dac)
+{
+	struct xfs_da_args	*args = dac->da_args;
+	struct xfs_inode	*dp = args->dp;
+
+	if (dac->dela_state == XFS_DAS_RM_SHRINK)
+		goto node;
+
+	if (!xfs_inode_hasattr(dp)) {
+		return -ENOATTR;
+	} else if (dp->i_d.di_aformat == XFS_DINODE_FMT_LOCAL) {
+		ASSERT(dp->i_afp->if_flags & XFS_IFINLINE);
+		return xfs_attr_shortform_remove(args);
+	} else if (xfs_bmap_one_block(dp, XFS_ATTR_FORK)) {
+		return xfs_attr_leaf_removename(args);
+	}
+node:
+	return  xfs_attr_node_removename(dac);
 }
 
 /*
@@ -1177,15 +1232,17 @@ xfs_attr_leaf_mark_incomplete(
 
 /*
  * Initial setup for xfs_attr_node_removename.  Make sure the attr is there and
- * the blocks are valid.  Any remote blocks will be marked incomplete.
+ * the blocks are valid.  Any remote blocks will be marked incomplete and
+ * invalidated.
  */
 STATIC
 int xfs_attr_node_removename_setup(
-	struct xfs_da_args	*args,
-	struct xfs_da_state	**state)
+	struct xfs_delattr_context	*dac,
+	struct xfs_da_state		**state)
 {
-	int			error;
-	struct xfs_da_state_blk	*blk;
+	struct xfs_da_args		*args = dac->da_args;
+	int				error;
+	struct xfs_da_state_blk		*blk;
 
 	error = xfs_attr_node_hasname(args, state);
 	if (error != -EEXIST)
@@ -1194,6 +1251,13 @@ int xfs_attr_node_removename_setup(
 	blk = &(*state)->path.blk[(*state)->path.active - 1];
 	ASSERT(blk->bp != NULL);
 	ASSERT(blk->magic == XFS_ATTR_LEAF_MAGIC);
+
+	/*
+	 * Store blk and state in the context incase we need to cycle out the
+	 * transaction
+	 */
+	dac->blk = blk;
+	dac->da_state = *state;
 
 	if (args->rmtblkno > 0) {
 		error = xfs_attr_leaf_mark_incomplete(args, *state);
@@ -1210,12 +1274,15 @@ int xfs_attr_node_removename_setup(
 
 STATIC int
 xfs_attr_node_removename_rmt (
-	struct xfs_da_args	*args,
-	struct xfs_da_state	*state)
+	struct xfs_delattr_context	*dac,
+	struct xfs_da_state		*state)
 {
-	int			error = 0;
+	int				error = 0;
 
-	error = xfs_attr_rmtval_remove(args);
+	/*
+	 * May return -EAGAIN to request that the caller recall this function
+	 */
+	error = __xfs_attr_rmtval_remove(dac);
 	if (error)
 		return error;
 
@@ -1232,21 +1299,35 @@ xfs_attr_node_removename_rmt (
  * This will involve walking down the Btree, and may involve joining
  * leaf nodes and even joining intermediate nodes up to and including
  * the root node (a special case of an intermediate node).
+ *
+ * This routine is meant to function as either an inline or delayed operation,
+ * and may return -EAGAIN when the transaction needs to be rolled.  Calling
+ * functions will need to handle this, and recall the function until a
+ * successful error code is returned.
  */
 STATIC int
 xfs_attr_node_removename(
-	struct xfs_da_args	*args)
+	struct xfs_delattr_context	*dac)
 {
-	struct xfs_da_state	*state;
-	struct xfs_da_state_blk	*blk;
-	int			retval, error;
-	struct xfs_inode	*dp = args->dp;
+	struct xfs_da_args		*args = dac->da_args;
+	struct xfs_da_state		*state;
+	struct xfs_da_state_blk		*blk;
+	int				retval, error;
+	struct xfs_inode		*dp = args->dp;
 
 	trace_xfs_attr_node_removename(args);
+	state = dac->da_state;
+	blk = dac->blk;
 
-	error = xfs_attr_node_removename_setup(args, &state);
-	if (error)
-		goto out;
+	if (dac->dela_state == XFS_DAS_RM_SHRINK)
+		goto das_rm_shrink;
+
+	if ((dac->flags & XFS_DAC_NODE_RMVNAME_INIT) == 0) {
+		dac->flags |= XFS_DAC_NODE_RMVNAME_INIT;
+		error = xfs_attr_node_removename_setup(dac, &state);
+		if (error)
+			goto out;
+	}
 
 	/*
 	 * If there is an out-of-line value, de-allocate the blocks.
@@ -1254,8 +1335,13 @@ xfs_attr_node_removename(
 	 * overflow the maximum size of a transaction and/or hit a deadlock.
 	 */
 	if (args->rmtblkno > 0) {
-		error = xfs_attr_node_removename_rmt(args, state);
-		if (error)
+		/*
+		 * May return -EAGAIN. Remove blocks until args->rmtblkno == 0
+		 */
+		error = xfs_attr_node_removename_rmt(dac, state);
+		if (error == -EAGAIN)
+			return error;
+		else if (error)
 			goto out;
 	}
 
@@ -1274,16 +1360,13 @@ xfs_attr_node_removename(
 		error = xfs_da3_join(state);
 		if (error)
 			goto out;
-		error = xfs_defer_finish(&args->trans);
-		if (error)
-			goto out;
-		/*
-		 * Commit the Btree join operation and start a new trans.
-		 */
-		error = xfs_trans_roll_inode(&args->trans, dp);
-		if (error)
-			goto out;
+
+		dac->flags |= XFS_DAC_DEFER_FINISH;
+		dac->dela_state = XFS_DAS_RM_SHRINK;
+		return -EAGAIN;
 	}
+
+das_rm_shrink:
 
 	/*
 	 * If the result is small enough, push it all into the inode.
