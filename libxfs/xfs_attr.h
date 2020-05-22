@@ -106,6 +106,118 @@ struct xfs_attr_list_context {
  *	                                      v         │
  *	                                     done <─────┘
  *
+ *
+ * Below is a state machine diagram for attr set operations.
+ *
+ *  xfs_attr_set_iter()
+ *             │
+ *             v
+ *   ┌───n── fork has
+ *   │	    only 1 blk?
+ *   │		│
+ *   │		y
+ *   │		│
+ *   │		v
+ *   │	xfs_attr_leaf_try_add()
+ *   │		│
+ *   │		v
+ *   │	     had enough
+ *   ├───n────space?
+ *   │		│
+ *   │		y
+ *   │		│
+ *   │		v
+ *   │	XFS_DAS_FOUND_LBLK ──┐
+ *   │	                     │
+ *   │	XFS_DAS_FLIP_LFLAG ──┤
+ *   │	(subroutine state)   │
+ *   │		             │
+ *   │		             └─>xfs_attr_leaf_addname()
+ *   │		                      │
+ *   │		                      v
+ *   │		                   was this
+ *   │		                   a rename? ──n─┐
+ *   │		                      │          │
+ *   │		                      y          │
+ *   │		                      │          │
+ *   │		                      v          │
+ *   │		                flip incomplete  │
+ *   │		                    flag         │
+ *   │		                      │          │
+ *   │		                      v          │
+ *   │		              XFS_DAS_FLIP_LFLAG │
+ *   │		                      │          │
+ *   │		                      v          │
+ *   │		                    remove       │
+ *   │		XFS_DAS_RM_LBLK ─> old name      │
+ *   │		         ^            │          │
+ *   │		         │            v          │
+ *   │		         └──────y── more to      │
+ *   │		                    remove       │
+ *   │		                      │          │
+ *   │		                      n          │
+ *   │		                      │          │
+ *   │		                      v          │
+ *   │		                     done <──────┘
+ *   └──> XFS_DAS_FOUND_NBLK ──┐
+ *	  (subroutine state)   │
+ *	                       │
+ *	  XFS_DAS_ALLOC_NODE ──┤
+ *	  (subroutine state)   │
+ *	                       │
+ *	  XFS_DAS_FLIP_NFLAG ──┤
+ *	  (subroutine state)   │
+ *	                       │
+ *	                       └─>xfs_attr_node_addname()
+ *	                               │
+ *	                               v
+ *	                       find space to store
+ *	                      attr. Split if needed
+ *	                               │
+ *	                               v
+ *	                       XFS_DAS_FOUND_NBLK
+ *	                               │
+ *	                               v
+ *	                 ┌─────n──  need to
+ *	                 │        alloc blks?
+ *	                 │             │
+ *	                 │             y
+ *	                 │             │
+ *	                 │             v
+ *	                 │  ┌─>XFS_DAS_ALLOC_NODE
+ *	                 │  │          │
+ *	                 │  │          v
+ *	                 │  └──y── need to alloc
+ *	                 │         more blocks?
+ *	                 │             │
+ *	                 │             n
+ *	                 │             │
+ *	                 │             v
+ *	                 │          was this
+ *	                 └────────> a rename? ──n─┐
+ *	                               │          │
+ *	                               y          │
+ *	                               │          │
+ *	                               v          │
+ *	                         flip incomplete  │
+ *	                             flag         │
+ *	                               │          │
+ *	                               v          │
+ *	                       XFS_DAS_FLIP_NFLAG │
+ *	                               │          │
+ *	                               v          │
+ *	                             remove       │
+ *	         XFS_DAS_RM_NBLK ─> old name      │
+ *	                  ^            │          │
+ *	                  │            v          │
+ *	                  └──────y── more to      │
+ *	                             remove       │
+ *	                               │          │
+ *	                               n          │
+ *	                               │          │
+ *	                               v          │
+ *	                              done <──────┘
+ *
  */
 
 /*
@@ -120,6 +232,13 @@ struct xfs_attr_list_context {
 enum xfs_delattr_state {
 				      /* Zero is uninitalized */
 	XFS_DAS_RM_SHRINK	= 1,  /* We are shrinking the tree */
+	XFS_DAS_FOUND_LBLK,	      /* We found leaf blk for attr */
+	XFS_DAS_FOUND_NBLK,	      /* We found node blk for attr */
+	XFS_DAS_FLIP_LFLAG,	      /* Flipped leaf INCOMPLETE attr flag */
+	XFS_DAS_RM_LBLK,	      /* A rename is removing leaf blocks */
+	XFS_DAS_ALLOC_NODE,	      /* We are allocating node blocks */
+	XFS_DAS_FLIP_NFLAG,	      /* Flipped node INCOMPLETE attr flag */
+	XFS_DAS_RM_NBLK,	      /* A rename is removing node blocks */
 };
 
 /*
@@ -127,12 +246,18 @@ enum xfs_delattr_state {
  */
 #define XFS_DAC_DEFER_FINISH		0x01 /* finish the transaction */
 #define XFS_DAC_NODE_RMVNAME_INIT	0x02 /* xfs_attr_node_removename init */
+#define XFS_DAC_LEAF_ADDNAME_INIT	0x04 /* xfs_attr_leaf_addname init*/
 
 /*
  * Context used for keeping track of delayed attribute operations
  */
 struct xfs_delattr_context {
 	struct xfs_da_args      *da_args;
+
+	/* Used in xfs_attr_rmtval_set_blk to roll through allocating blocks */
+	struct xfs_bmbt_irec	map;
+	xfs_dablk_t		lblkno;
+	int			blkcnt;
 
 	/* Used in xfs_attr_node_removename to roll through removing blocks */
 	struct xfs_da_state     *da_state;
@@ -161,7 +286,6 @@ int xfs_attr_set_args(struct xfs_da_args *args);
 int xfs_has_attr(struct xfs_da_args *args);
 int xfs_attr_remove_args(struct xfs_da_args *args);
 int xfs_attr_remove_iter(struct xfs_delattr_context *dac);
-bool xfs_attr_roll_again(struct xfs_delattr_context *dac, int *error);
 bool xfs_attr_namecheck(const void *name, size_t length);
 void xfs_delattr_context_init(struct xfs_delattr_context *dac,
 			      struct xfs_da_args *args);
