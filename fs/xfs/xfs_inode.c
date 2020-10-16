@@ -2793,15 +2793,26 @@ xfs_iunpin_wait(
  */
 int
 xfs_remove(
-	xfs_inode_t             *dp,
-	struct xfs_name		*name,
-	xfs_inode_t		*ip)
+	xfs_inode_t             	*dp,
+	struct xfs_name			*name,
+	xfs_inode_t			*ip)
 {
-	xfs_mount_t		*mp = dp->i_mount;
-	xfs_trans_t             *tp = NULL;
-	int			is_dir = S_ISDIR(VFS_I(ip)->i_mode);
-	int                     error = 0;
-	uint			resblks;
+	xfs_mount_t			*mp = dp->i_mount;
+	xfs_trans_t             	*tp = NULL;
+	int				is_dir = S_ISDIR(VFS_I(ip)->i_mode);
+	int                     	error = 0;
+	uint				resblks;
+	xfs_dir2_dataptr_t		dir_offset;
+	struct xfs_parent_name_rec	rec;
+	struct xfs_da_args		args = {
+		.dp		= ip,
+		.geo		= mp->m_attr_geo,
+		.whichfork	= XFS_ATTR_FORK,
+		.attr_filter	= XFS_ATTR_PARENT,
+		.op_flags	= XFS_DA_OP_OKNOENT,
+		.name		= (const uint8_t *)&rec,
+		.namelen	= sizeof(rec),
+	};
 
 	trace_xfs_remove(dp, name);
 
@@ -2839,8 +2850,8 @@ xfs_remove(
 
 	xfs_lock_two_inodes(dp, XFS_ILOCK_EXCL, ip, XFS_ILOCK_EXCL);
 
-	xfs_trans_ijoin(tp, dp, XFS_ILOCK_EXCL);
-	xfs_trans_ijoin(tp, ip, XFS_ILOCK_EXCL);
+	xfs_trans_ijoin(tp, dp, 0);
+	xfs_trans_ijoin(tp, ip, 0);
 
 	/*
 	 * If we're removing a directory perform some additional validation.
@@ -2880,10 +2891,20 @@ xfs_remove(
 	if (error)
 		goto out_trans_cancel;
 
-	error = xfs_dir_removename(tp, dp, name, ip->i_ino, resblks, NULL);
+	error = xfs_dir_removename(tp, dp, name, ip->i_ino, resblks, &dir_offset);
 	if (error) {
 		ASSERT(error != -ENOENT);
 		goto out_trans_cancel;
+	}
+
+	if (xfs_sb_version_hasparent(&mp->m_sb)) {
+		xfs_init_parent_name_rec(&rec, dp, dir_offset);
+		args.hashval = xfs_da_hashname(args.name, args.namelen);
+		args.trans = tp;
+
+		error = xfs_attr_remove_deferred(&args);
+		if (error)
+			goto out_trans_cancel;
 	}
 
 	/*
@@ -2896,15 +2917,20 @@ xfs_remove(
 
 	error = xfs_trans_commit(tp);
 	if (error)
-		goto std_return;
+		goto out_unlock;
 
 	if (is_dir && xfs_inode_is_filestream(ip))
 		xfs_filestream_deassociate(ip);
 
+	xfs_iunlock(ip, XFS_ILOCK_EXCL);
+	xfs_iunlock(dp, XFS_ILOCK_EXCL);
 	return 0;
 
  out_trans_cancel:
 	xfs_trans_cancel(tp);
+out_unlock:
+	xfs_iunlock(ip, XFS_ILOCK_EXCL);
+	xfs_iunlock(dp, XFS_ILOCK_EXCL);
  std_return:
 	return error;
 }
