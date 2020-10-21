@@ -751,10 +751,8 @@ xfs_attr_rmtval_remove(
 	if (error)
 		return error;
 
-	if (!done) {
-		dac->flags |= XFS_DAC_DEFER_FINISH;
+	if (!done)
 		return -EAGAIN;
-	}
 
 	return error;
 }
