@@ -1384,6 +1384,25 @@ xfs_attr_node_remove_rmt (
 	return xfs_attr_refillstate(state);
 }
 
+STATIC int
+xfs_attr_node_remove_cleanup(
+	struct xfs_delattr_context	*dac)
+{
+	struct xfs_da_args		*args = dac->da_args;
+	struct xfs_da_state_blk		*blk;
+	int				retval;
+
+	/*
+	 * Remove the name and update the hashvals in the tree.
+	 */
+	blk = &dac->da_state->path.blk[ dac->da_state->path.active-1 ];
+	ASSERT(blk->magic == XFS_ATTR_LEAF_MAGIC);
+	retval = xfs_attr3_leaf_remove(blk->bp, args);
+	xfs_da3_fixhashpath(dac->da_state, &dac->da_state->path);
+
+	return retval;
+}
+
 /*
  * Step through removeing a name from a B-tree attribute list.
  *
@@ -1402,7 +1421,6 @@ xfs_attr_node_remove_step(
 {
 	struct xfs_da_args		*args = dac->da_args;
 	struct xfs_da_state		*state;
-	struct xfs_da_state_blk		*blk;
 	int				retval, error = 0;
 
 	state = dac->da_state;
@@ -1420,14 +1438,7 @@ xfs_attr_node_remove_step(
 		if (error)
 			return error;
 	}
-
-	/*
-	 * Remove the name and update the hashvals in the tree.
-	 */
-	blk = &state->path.blk[ state->path.active-1 ];
-	ASSERT(blk->magic == XFS_ATTR_LEAF_MAGIC);
-	retval = xfs_attr3_leaf_remove(blk->bp, args);
-	xfs_da3_fixhashpath(state, &state->path);
+	retval = xfs_attr_node_remove_cleanup(dac);
 
 	/*
 	 * Check to see if the tree needs to be collapsed.  Set the flag to
