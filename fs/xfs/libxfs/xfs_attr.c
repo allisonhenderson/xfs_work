@@ -1421,7 +1421,7 @@ xfs_attr_node_remove_step(
 {
 	struct xfs_da_args		*args = dac->da_args;
 	struct xfs_da_state		*state;
-	int				retval, error = 0;
+	int				error = 0;
 
 	state = dac->da_state;
 
@@ -1438,21 +1438,7 @@ xfs_attr_node_remove_step(
 		if (error)
 			return error;
 	}
-	retval = xfs_attr_node_remove_cleanup(dac);
 
-	/*
-	 * Check to see if the tree needs to be collapsed.  Set the flag to
-	 * indicate that the calling function needs to move the to shrink
-	 * operation
-	 */
-	if (retval && (state->path.active > 1)) {
-		error = xfs_da3_join(state);
-		if (error)
-			return error;
-
-		dac->dela_state = XFS_DAS_RM_SHRINK;
-		return -EAGAIN;
-	}
 
 	return error;
 }
@@ -1474,7 +1460,7 @@ xfs_attr_node_removename_iter(
 {
 	struct xfs_da_args		*args = dac->da_args;
 	struct xfs_da_state		*state = NULL;
-	int				error;
+	int				error, retval;
 	struct xfs_inode		*dp = args->dp;
 
 	trace_xfs_attr_node_removename(args);
@@ -1492,6 +1478,22 @@ xfs_attr_node_removename_iter(
 		error = xfs_attr_node_remove_step(dac);
 		if (error)
 			break;
+
+		retval = xfs_attr_node_remove_cleanup(dac);
+
+		/*
+		 * Check to see if the tree needs to be collapsed.  Set the flag to
+		 * indicate that the calling function needs to move the to shrink
+		 * operation
+		 */
+		if (retval && (state->path.active > 1)) {
+			error = xfs_da3_join(state);
+			if (error)
+				return error;
+
+			dac->dela_state = XFS_DAS_RM_SHRINK;
+			return -EAGAIN;
+		}
 
 		/* do not break, proceed to shrink if needed */
 	case XFS_DAS_RM_SHRINK:
