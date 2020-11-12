@@ -184,18 +184,22 @@ xfs_attri_item_release(
 }
 
 /*
- * Allocate and initialize an attri item
+ * Allocate and initialize an attri item.  Caller may allocate an additional
+ * trailing buffer of the specified size
  */
 STATIC struct xfs_attri_log_item *
 xfs_attri_init(
-	struct xfs_mount	*mp)
+	struct xfs_mount	*mp,
+	int			buffer_size)
 
 {
 	struct xfs_attri_log_item	*attrip;
 	uint				size;
 
-	size = (uint)(sizeof(struct xfs_attri_log_item));
-	attrip = kmem_zalloc(size, 0);
+	size = (uint)(sizeof(struct xfs_attri_log_item)) + buffer_size;
+	attrip = kmem_alloc_large(size, KM_ZERO | KM_NOLOCKDEP);
+	if (attrip == NULL)
+		return NULL;
 
 	xfs_log_item_init(mp, &attrip->attri_item, XFS_LI_ATTRI,
 			  &xfs_attri_item_ops);
@@ -393,7 +397,10 @@ xfs_attr_create_intent(
 	if (!xfs_sb_version_hasdelattr(&mp->m_sb))
 		return NULL;
 
-	attrip = xfs_attri_init(mp);
+	attrip = xfs_attri_init(mp, 0);
+	if (attrip == NULL)
+		return NULL;
+
 	xfs_trans_add_item(tp, &attrip->attri_item);
 	list_for_each_entry(attr, items, xattri_list)
 		xfs_attr_log_item(tp, attrip, attr);
@@ -678,10 +685,16 @@ xlog_recover_attri_commit_pass2(
 	char				*name = NULL;
 	char				*value = NULL;
 	int				region = 0;
+	int				buffer_size;
 
 	attri_formatp = item->ri_buf[region].i_addr;
+	buffer_size = attri_formatp->alfi_name_len +
+		      attri_formatp->alfi_value_len;
 
-	attrip = xfs_attri_init(mp);
+	attrip = xfs_attri_init(mp, buffer_size);
+	if (attrip == NULL)
+		return -ENOMEM;
+
 	error = xfs_attri_copy_format(&item->ri_buf[region],
 				      &attrip->attri_format);
 	if (error) {
@@ -691,10 +704,6 @@ xlog_recover_attri_commit_pass2(
 
 	attrip->attri_name_len = attri_formatp->alfi_name_len;
 	attrip->attri_value_len = attri_formatp->alfi_value_len;
-	attrip = krealloc(attrip, sizeof(struct xfs_attri_log_item) +
-			  attrip->attri_name_len + attrip->attri_value_len,
-			  GFP_NOFS | __GFP_NOFAIL);
-
 	ASSERT(attrip->attri_name_len > 0);
 	region++;
 	name = ((char *)attrip) + sizeof(struct xfs_attri_log_item);
