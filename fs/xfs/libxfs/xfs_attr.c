@@ -1251,9 +1251,7 @@ xfs_attr_node_remove_step(
 	struct xfs_da_args	*args,
 	struct xfs_da_state	*state)
 {
-	int			retval, error;
-	struct xfs_inode	*dp = args->dp;
-
+	int			error;
 
 	/*
 	 * If there is an out-of-line value, de-allocate the blocks.
@@ -1262,25 +1260,6 @@ xfs_attr_node_remove_step(
 	 */
 	if (args->rmtblkno > 0) {
 		error = xfs_attr_node_remove_rmt(args, state);
-		if (error)
-			return error;
-	}
-	retval = xfs_attr_node_remove_cleanup(args, state);
-
-	/*
-	 * Check to see if the tree needs to be collapsed.
-	 */
-	if (retval && (state->path.active > 1)) {
-		error = xfs_da3_join(state);
-		if (error)
-			return error;
-		error = xfs_defer_finish(&args->trans);
-		if (error)
-			return error;
-		/*
-		 * Commit the Btree join operation and start a new trans.
-		 */
-		error = xfs_trans_roll_inode(&args->trans, dp);
 		if (error)
 			return error;
 	}
@@ -1299,7 +1278,7 @@ xfs_attr_node_removename(
 	struct xfs_da_args	*args)
 {
 	struct xfs_da_state	*state = NULL;
-	int			error;
+	int			retval, error;
 	struct xfs_inode	*dp = args->dp;
 
 	trace_xfs_attr_node_removename(args);
@@ -1311,6 +1290,26 @@ xfs_attr_node_removename(
 	error = xfs_attr_node_remove_step(args, state);
 	if (error)
 		goto out;
+
+	retval = xfs_attr_node_remove_cleanup(args, state);
+
+	/*
+	 * Check to see if the tree needs to be collapsed.
+	 */
+	if (retval && (state->path.active > 1)) {
+		error = xfs_da3_join(state);
+		if (error)
+			goto out;
+		error = xfs_defer_finish(&args->trans);
+		if (error)
+			goto out;
+		/*
+		 * Commit the Btree join operation and start a new trans.
+		 */
+		error = xfs_trans_roll_inode(&args->trans, dp);
+		if (error)
+			goto out;
+	}
 
 	/*
 	 * If the result is small enough, push it all into the inode.
