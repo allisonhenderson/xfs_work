@@ -1243,7 +1243,7 @@ xfs_attr_node_remove_step(
 	struct xfs_da_args	*args,
 	struct xfs_da_state	*state)
 {
-	int			retval, error;
+	int			error;
 	struct xfs_inode	*dp = args->dp;
 
 
@@ -1257,6 +1257,34 @@ xfs_attr_node_remove_step(
 		if (error)
 			return error;
 	}
+
+	return error;
+}
+
+/*
+ * Remove a name from a B-tree attribute list.
+ *
+ * This routine will find the blocks of the name to remove, remove them and
+ * shirnk the tree if needed.
+ */
+STATIC int
+xfs_attr_node_removename(
+	struct xfs_da_args	*args)
+{
+	struct xfs_da_state	*state = NULL;
+	int			retval, error;
+	struct xfs_inode	*dp = args->dp;
+
+	trace_xfs_attr_node_removename(args);
+
+	error = xfs_attr_node_removename_setup(args, &state);
+	if (error)
+		goto out;
+
+	error = xfs_attr_node_remove_step(args, state);
+	if (error)
+		goto out;
+
 	retval = xfs_attr_node_remove_cleanup(args, state);
 
 	/*
@@ -1276,33 +1304,6 @@ xfs_attr_node_remove_step(
 		if (error)
 			return error;
 	}
-
-	return error;
-}
-
-/*
- * Remove a name from a B-tree attribute list.
- *
- * This routine will find the blocks of the name to remove, remove them and
- * shirnk the tree if needed.
- */
-STATIC int
-xfs_attr_node_removename(
-	struct xfs_da_args	*args)
-{
-	struct xfs_da_state	*state = NULL;
-	int			error;
-	struct xfs_inode	*dp = args->dp;
-
-	trace_xfs_attr_node_removename(args);
-
-	error = xfs_attr_node_removename_setup(args, &state);
-	if (error)
-		goto out;
-
-	error = xfs_attr_node_remove_step(args, state);
-	if (error)
-		goto out;
 
 	/*
 	 * If the result is small enough, push it all into the inode.
