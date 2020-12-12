@@ -797,6 +797,7 @@ xfs_attr_leaf_addname(
 	struct xfs_buf			*bp = NULL;
 	int				error, forkoff;
 	struct xfs_inode		*dp = args->dp;
+	struct xfs_mount		*mp = args->dp->i_mount;
 
 	/* State machine switch */
 	switch (dac->dela_state) {
@@ -862,15 +863,17 @@ xfs_attr_leaf_addname(
 	 * In a separate transaction, set the incomplete flag on the "old" attr
 	 * and clear the incomplete flag on the "new" attr.
 	 */
-	error = xfs_attr3_leaf_flipflags(args);
-	if (error)
-		return error;
-	/*
-	 * Commit the flag value change and start the next trans in series.
-	 */
-	dac->dela_state = XFS_DAS_FLIP_LFLAG;
-	trace_xfs_das_state_return(dac->dela_state);
-	return -EAGAIN;
+	if (!xfs_hasdelattr(mp)) {
+		error = xfs_attr3_leaf_flipflags(args);
+		if (error)
+			return error;
+		/*
+		 * Commit the flag value change and start the next trans in series.
+		 */
+		dac->dela_state = XFS_DAS_FLIP_LFLAG;
+		trace_xfs_das_state_return(dac->dela_state);
+		return -EAGAIN;
+	}
 das_flip_flag:
 	/*
 	 * Dismantle the "old" attribute/value pair by removing a "remote" value
@@ -1069,6 +1072,7 @@ xfs_attr_node_addname(
 	struct xfs_da_state_blk		*blk;
 	int				retval = 0;
 	int				error = 0;
+	struct xfs_mount		*mp = args->dp->i_mount;
 
 	trace_xfs_attr_node_addname(args);
 
@@ -1230,15 +1234,17 @@ das_alloc_node:
 	 * In a separate transaction, set the incomplete flag on the "old" attr
 	 * and clear the incomplete flag on the "new" attr.
 	 */
-	error = xfs_attr3_leaf_flipflags(args);
-	if (error)
-		goto out;
-	/*
-	 * Commit the flag value change and start the next trans in series
-	 */
-	dac->dela_state = XFS_DAS_FLIP_NFLAG;
-	trace_xfs_das_state_return(dac->dela_state);
-	return -EAGAIN;
+	if (!xfs_hasdelattr(mp)) {
+		error = xfs_attr3_leaf_flipflags(args);
+		if (error)
+			goto out;
+		/*
+		 * Commit the flag value change and start the next trans in series
+		 */
+		dac->dela_state = XFS_DAS_FLIP_NFLAG;
+		trace_xfs_das_state_return(dac->dela_state);
+		return -EAGAIN;
+	}
 das_flip_flag:
 	/*
 	 * Dismantle the "old" attribute/value pair by removing a "remote" value
@@ -1267,7 +1273,6 @@ das_rm_nblk:
 	 * Re-find the "old" attribute entry after any split ops. The INCOMPLETE
 	 * flag means that we will find the "old" attr, not the "new" one.
 	 */
-	args->attr_filter |= XFS_ATTR_INCOMPLETE;
 	state = xfs_da_state_alloc(args);
 	state->inleaf = 0;
 	error = xfs_da3_node_lookup_int(state, &retval);
