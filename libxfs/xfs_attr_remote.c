@@ -764,6 +764,7 @@ __xfs_attr_rmtval_remove(
 	 */
 	if (!done) {
 		dac->flags |= XFS_DAC_DEFER_FINISH;
+		trace_xfs_das_state_return(dac->dela_state);
 		return -EAGAIN;
 	}
 
