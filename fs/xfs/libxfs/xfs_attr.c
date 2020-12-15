@@ -263,6 +263,7 @@ xfs_attr_set_shortform(
 	 * We're still in XFS_DAS_UNINIT state here.  We've converted the attr
 	 * fork to leaf format and will restart with the leaf add.
 	 */
+	trace_xfs_das_state_return(XFS_DAS_UNINIT);
 	return -EAGAIN;
 }
 
@@ -409,9 +410,11 @@ xfs_attr_set_iter(
 		 * down into the node handling code below
 		 */
 		dac->flags |= XFS_DAC_DEFER_FINISH;
+		trace_xfs_das_state_return(dac->dela_state);
 		return -EAGAIN;
 	case 0:
 		dac->dela_state = XFS_DAS_FOUND_LBLK;
+		trace_xfs_das_state_return(dac->dela_state);
 		return -EAGAIN;
 	}
 	return error;
@@ -841,6 +844,7 @@ xfs_attr_leaf_addname(
 			return error;
 
 		dac->flags |= XFS_DAC_DEFER_FINISH;
+		trace_xfs_das_state_return(dac->dela_state);
 		return -EAGAIN;
 	}
 
@@ -874,6 +878,7 @@ xfs_attr_leaf_addname(
 	 * Commit the flag value change and start the next trans in series.
 	 */
 	dac->dela_state = XFS_DAS_FLIP_LFLAG;
+	trace_xfs_das_state_return(dac->dela_state);
 	return -EAGAIN;
 das_flip_flag:
 	/*
@@ -891,6 +896,8 @@ das_flip_flag:
 das_rm_lblk:
 	if (args->rmtblkno) {
 		error = __xfs_attr_rmtval_remove(dac);
+		if (error == -EAGAIN)
+			trace_xfs_das_state_return(dac->dela_state);
 		if (error)
 			return error;
 	}
@@ -1142,6 +1149,7 @@ xfs_attr_node_addname(
 			 * this point.
 			 */
 			dac->flags |= XFS_DAC_DEFER_FINISH;
+			trace_xfs_das_state_return(dac->dela_state);
 			return -EAGAIN;
 		}
 
@@ -1175,6 +1183,7 @@ xfs_attr_node_addname(
 	state = NULL;
 
 	dac->dela_state = XFS_DAS_FOUND_NBLK;
+	trace_xfs_das_state_return(dac->dela_state);
 	return -EAGAIN;
 das_found_nblk:
 
@@ -1202,6 +1211,7 @@ das_alloc_node:
 				return error;
 
 			dac->flags |= XFS_DAC_DEFER_FINISH;
+			trace_xfs_das_state_return(dac->dela_state);
 			return -EAGAIN;
 		}
 
@@ -1236,6 +1246,7 @@ das_alloc_node:
 	 * Commit the flag value change and start the next trans in series
 	 */
 	dac->dela_state = XFS_DAS_FLIP_NFLAG;
+	trace_xfs_das_state_return(dac->dela_state);
 	return -EAGAIN;
 das_flip_flag:
 	/*
@@ -1253,6 +1264,10 @@ das_flip_flag:
 das_rm_nblk:
 	if (args->rmtblkno) {
 		error = __xfs_attr_rmtval_remove(dac);
+
+		if (error == -EAGAIN)
+			trace_xfs_das_state_return(dac->dela_state);
+
 		if (error)
 			return error;
 	}
@@ -1396,6 +1411,8 @@ xfs_attr_node_remove_rmt (
 	 * May return -EAGAIN to request that the caller recall this function
 	 */
 	error = __xfs_attr_rmtval_remove(dac);
+	if (error == -EAGAIN)
+		trace_xfs_das_state_return(dac->dela_state);
 	if (error)
 		return error;
 
@@ -1514,6 +1531,7 @@ xfs_attr_node_removename_iter(
 
 			dac->flags |= XFS_DAC_DEFER_FINISH;
 			dac->dela_state = XFS_DAS_RM_SHRINK;
+			trace_xfs_das_state_return(dac->dela_state);
 			return -EAGAIN;
 		}
 
@@ -1532,8 +1550,10 @@ xfs_attr_node_removename_iter(
 		goto out;
 	}
 
-	if (error == -EAGAIN)
+	if (error == -EAGAIN) {
+		trace_xfs_das_state_return(dac->dela_state);
 		return error;
+	}
 out:
 	if (state)
 		xfs_da_state_free(state);
