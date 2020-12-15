@@ -895,7 +895,7 @@ das_flip_flag:
 	dac->dela_state = XFS_DAS_RM_LBLK;
 das_rm_lblk:
 	if (args->rmtblkno) {
-		error = __xfs_attr_rmtval_remove(dac);
+		error = xfs_attr_rmtval_remove(dac);
 		if (error == -EAGAIN)
 			trace_xfs_das_state_return(dac->dela_state);
 		if (error)
@@ -1263,7 +1263,7 @@ das_flip_flag:
 	dac->dela_state = XFS_DAS_RM_NBLK;
 das_rm_nblk:
 	if (args->rmtblkno) {
-		error = __xfs_attr_rmtval_remove(dac);
+		error = xfs_attr_rmtval_remove(dac);
 
 		if (error == -EAGAIN)
 			trace_xfs_das_state_return(dac->dela_state);
@@ -1410,7 +1410,7 @@ xfs_attr_node_remove_rmt (
 	/*
 	 * May return -EAGAIN to request that the caller recall this function
 	 */
-	error = __xfs_attr_rmtval_remove(dac);
+	error = xfs_attr_rmtval_remove(dac);
 	if (error == -EAGAIN)
 		trace_xfs_das_state_return(dac->dela_state);
 	if (error)
