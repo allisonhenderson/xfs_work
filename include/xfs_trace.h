@@ -314,4 +314,5 @@
 #define trace_xfs_perag_get_tag(a,b,c,d)	((c) = (c))
 #define trace_xfs_perag_put(a,b,c,d)		((c) = (c))
 
+#define trace_xfs_das_state_return(a)		((void) 0)
 #endif /* __TRACE_H__ */
