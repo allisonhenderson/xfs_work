@@ -46,7 +46,7 @@ STATIC int xfs_attr_shortform_addname(xfs_da_args_t *args);
  * Internal routines when attribute list is one block.
  */
 STATIC int xfs_attr_leaf_get(xfs_da_args_t *args);
-STATIC int xfs_attr_leaf_addname(struct xfs_delattr_context *dac);
+STATIC int xfs_attr_leaf_addname(struct xfs_attr_item *attr);
 STATIC int xfs_attr_leaf_removename(xfs_da_args_t *args);
 STATIC int xfs_attr_leaf_hasname(struct xfs_da_args *args, struct xfs_buf **bp);
 
@@ -54,8 +54,8 @@ STATIC int xfs_attr_leaf_hasname(struct xfs_da_args *args, struct xfs_buf **bp);
  * Internal routines when attribute list is more than one block.
  */
 STATIC int xfs_attr_node_get(xfs_da_args_t *args);
-STATIC int xfs_attr_node_addname(struct xfs_delattr_context *dac);
-STATIC int xfs_attr_node_removename_iter(struct xfs_delattr_context *dac);
+STATIC int xfs_attr_node_addname(struct xfs_attr_item *attr);
+STATIC int xfs_attr_node_removename_iter(struct xfs_attr_item *attr);
 STATIC int xfs_attr_node_hasname(xfs_da_args_t *args,
 				 struct xfs_da_state **state);
 STATIC int xfs_attr_fillstate(xfs_da_state_t *state);
@@ -276,27 +276,27 @@ xfs_attr_set_shortform(
  */
 int
 xfs_attr_set_iter(
-	struct xfs_delattr_context	*dac)
+	struct xfs_attr_item		*attr)
 {
-	struct xfs_da_args		*args = dac->da_args;
+	struct xfs_da_args		*args = attr->xattri_da_args;
 	struct xfs_inode		*dp = args->dp;
-	struct xfs_buf			**leaf_bp = &dac->leaf_bp;
+	struct xfs_buf			**leaf_bp = &attr->xattri_leaf_bp;
 	int				error = 0;
 
 	/* State machine switch */
-	switch (dac->dela_state) {
+	switch (attr->xattri_dela_state) {
 	case XFS_DAS_FLIP_LFLAG:
 	case XFS_DAS_FOUND_LBLK:
 	case XFS_DAS_RM_LBLK:
-		return xfs_attr_leaf_addname(dac);
+		return xfs_attr_leaf_addname(attr);
 	case XFS_DAS_FOUND_NBLK:
 	case XFS_DAS_FLIP_NFLAG:
 	case XFS_DAS_ALLOC_NODE:
-		return xfs_attr_node_addname(dac);
+		return xfs_attr_node_addname(attr);
 	case XFS_DAS_UNINIT:
 		break;
 	default:
-		ASSERT(dac->dela_state != XFS_DAS_RM_SHRINK);
+		ASSERT(attr->xattri_dela_state != XFS_DAS_RM_SHRINK);
 		break;
 	}
 
@@ -328,7 +328,7 @@ xfs_attr_set_iter(
 	}
 
 	if (!xfs_bmap_one_block(dp, XFS_ATTR_FORK))
-		return xfs_attr_node_addname(dac);
+		return xfs_attr_node_addname(attr);
 
 	error = xfs_attr_leaf_try_add(args, *leaf_bp);
 	switch (error) {
@@ -351,11 +351,11 @@ xfs_attr_set_iter(
 		 * when we come back, we'll be a node, so we'll fall
 		 * down into the node handling code below
 		 */
-		trace_xfs_das_state_return(dac->dela_state);
+		trace_xfs_das_state_return(attr->xattri_dela_state);
 		return -EAGAIN;
 	case 0:
-		dac->dela_state = XFS_DAS_FOUND_LBLK;
-		trace_xfs_das_state_return(dac->dela_state);
+		attr->xattri_dela_state = XFS_DAS_FOUND_LBLK;
+		trace_xfs_das_state_return(attr->xattri_dela_state);
 		return -EAGAIN;
 	}
 	return error;
@@ -401,13 +401,13 @@ xfs_has_attr(
  */
 int
 xfs_attr_remove_iter(
-	struct xfs_delattr_context	*dac)
+	struct xfs_attr_item		*attr)
 {
-	struct xfs_da_args		*args = dac->da_args;
+	struct xfs_da_args		*args = attr->xattri_da_args;
 	struct xfs_inode		*dp = args->dp;
 
 	/* If we are shrinking a node, resume shrink */
-	if (dac->dela_state == XFS_DAS_RM_SHRINK)
+	if (attr->xattri_dela_state == XFS_DAS_RM_SHRINK)
 		goto node;
 
 	if (!xfs_inode_hasattr(dp))
@@ -422,7 +422,7 @@ xfs_attr_remove_iter(
 		return xfs_attr_leaf_removename(args);
 node:
 	/* If we are not short form or leaf, then proceed to remove node */
-	return  xfs_attr_node_removename_iter(dac);
+	return  xfs_attr_node_removename_iter(attr);
 }
 
 /*
@@ -573,7 +573,7 @@ xfs_attr_item_init(
 
 	new = kmem_zalloc(sizeof(struct xfs_attr_item), KM_NOFS);
 	new->xattri_op_flags = op_flags;
-	new->xattri_dac.da_args = args;
+	new->xattri_da_args = args;
 
 	*attr = new;
 	return 0;
@@ -768,16 +768,16 @@ out_brelse:
  */
 STATIC int
 xfs_attr_leaf_addname(
-	struct xfs_delattr_context	*dac)
+	struct xfs_attr_item		*attr)
 {
-	struct xfs_da_args		*args = dac->da_args;
+	struct xfs_da_args		*args = attr->xattri_da_args;
 	struct xfs_buf			*bp = NULL;
 	int				error, forkoff;
 	struct xfs_inode		*dp = args->dp;
 	struct xfs_mount		*mp = args->dp->i_mount;
 
 	/* State machine switch */
-	switch (dac->dela_state) {
+	switch (attr->xattri_dela_state) {
 	case XFS_DAS_FLIP_LFLAG:
 		goto das_flip_flag;
 	case XFS_DAS_RM_LBLK:
@@ -794,10 +794,10 @@ xfs_attr_leaf_addname(
 	 */
 
 	/* Open coded xfs_attr_rmtval_set without trans handling */
-	if ((dac->flags & XFS_DAC_LEAF_ADDNAME_INIT) == 0) {
-		dac->flags |= XFS_DAC_LEAF_ADDNAME_INIT;
+	if ((attr->xattri_flags & XFS_DAC_LEAF_ADDNAME_INIT) == 0) {
+		attr->xattri_flags |= XFS_DAC_LEAF_ADDNAME_INIT;
 		if (args->rmtblkno > 0) {
-			error = xfs_attr_rmtval_find_space(dac);
+			error = xfs_attr_rmtval_find_space(attr);
 			if (error)
 				return error;
 		}
@@ -807,12 +807,12 @@ xfs_attr_leaf_addname(
 	 * Roll through the "value", allocating blocks on disk as
 	 * required.
 	 */
-	if (dac->blkcnt > 0) {
-		error = xfs_attr_rmtval_set_blk(dac);
+	if (attr->xattri_blkcnt > 0) {
+		error = xfs_attr_rmtval_set_blk(attr);
 		if (error)
 			return error;
 
-		trace_xfs_das_state_return(dac->dela_state);
+		trace_xfs_das_state_return(attr->xattri_dela_state);
 		return -EAGAIN;
 	}
 
@@ -846,8 +846,8 @@ xfs_attr_leaf_addname(
 		/*
 		 * Commit the flag value change and start the next trans in series.
 		 */
-		dac->dela_state = XFS_DAS_FLIP_LFLAG;
-		trace_xfs_das_state_return(dac->dela_state);
+		attr->xattri_dela_state = XFS_DAS_FLIP_LFLAG;
+		trace_xfs_das_state_return(attr->xattri_dela_state);
 		return -EAGAIN;
 	}
 das_flip_flag:
@@ -862,12 +862,12 @@ das_flip_flag:
 		return error;
 
 	/* Set state in case xfs_attr_rmtval_remove returns -EAGAIN */
-	dac->dela_state = XFS_DAS_RM_LBLK;
+	attr->xattri_dela_state = XFS_DAS_RM_LBLK;
 das_rm_lblk:
 	if (args->rmtblkno) {
-		error = xfs_attr_rmtval_remove(dac);
+		error = xfs_attr_rmtval_remove(attr);
 		if (error == -EAGAIN)
-			trace_xfs_das_state_return(dac->dela_state);
+			trace_xfs_das_state_return(attr->xattri_dela_state);
 		if (error)
 			return error;
 	}
@@ -1041,9 +1041,9 @@ xfs_attr_node_hasname(
  */
 STATIC int
 xfs_attr_node_addname(
-	struct xfs_delattr_context	*dac)
+	struct xfs_attr_item		*attr)
 {
-	struct xfs_da_args		*args = dac->da_args;
+	struct xfs_da_args		*args = attr->xattri_da_args;
 	struct xfs_da_state		*state = NULL;
 	struct xfs_da_state_blk		*blk;
 	int				retval = 0;
@@ -1053,7 +1053,7 @@ xfs_attr_node_addname(
 	trace_xfs_attr_node_addname(args);
 
 	/* State machine switch */
-	switch (dac->dela_state) {
+	switch (attr->xattri_dela_state) {
 	case XFS_DAS_FLIP_NFLAG:
 		goto das_flip_flag;
 	case XFS_DAS_FOUND_NBLK:
@@ -1119,7 +1119,7 @@ xfs_attr_node_addname(
 			 * this. dela_state is still unset by this function at
 			 * this point.
 			 */
-			trace_xfs_das_state_return(dac->dela_state);
+			trace_xfs_das_state_return(attr->xattri_dela_state);
 			return -EAGAIN;
 		}
 
@@ -1151,8 +1151,8 @@ xfs_attr_node_addname(
 	xfs_da_state_free(state);
 	state = NULL;
 
-	dac->dela_state = XFS_DAS_FOUND_NBLK;
-	trace_xfs_das_state_return(dac->dela_state);
+	attr->xattri_dela_state = XFS_DAS_FOUND_NBLK;
+	trace_xfs_das_state_return(attr->xattri_dela_state);
 	return -EAGAIN;
 das_found_nblk:
 
@@ -1164,7 +1164,7 @@ das_found_nblk:
 	 */
 	if (args->rmtblkno > 0) {
 		/* Open coded xfs_attr_rmtval_set without trans handling */
-		error = xfs_attr_rmtval_find_space(dac);
+		error = xfs_attr_rmtval_find_space(attr);
 		if (error)
 			return error;
 
@@ -1172,14 +1172,14 @@ das_found_nblk:
 		 * Roll through the "value", allocating blocks on disk as
 		 * required.  Set the state in case of -EAGAIN return code
 		 */
-		dac->dela_state = XFS_DAS_ALLOC_NODE;
+		attr->xattri_dela_state = XFS_DAS_ALLOC_NODE;
 das_alloc_node:
-		if (dac->blkcnt > 0) {
-			error = xfs_attr_rmtval_set_blk(dac);
+		if (attr->xattri_blkcnt > 0) {
+			error = xfs_attr_rmtval_set_blk(attr);
 			if (error)
 				return error;
 
-			trace_xfs_das_state_return(dac->dela_state);
+			trace_xfs_das_state_return(attr->xattri_dela_state);
 			return -EAGAIN;
 		}
 
@@ -1214,8 +1214,8 @@ das_alloc_node:
 		/*
 		 * Commit the flag value change and start the next trans in series
 		 */
-		dac->dela_state = XFS_DAS_FLIP_NFLAG;
-		trace_xfs_das_state_return(dac->dela_state);
+		attr->xattri_dela_state = XFS_DAS_FLIP_NFLAG;
+		trace_xfs_das_state_return(attr->xattri_dela_state);
 		return -EAGAIN;
 	}
 das_flip_flag:
@@ -1230,13 +1230,13 @@ das_flip_flag:
 		return error;
 
 	/* Set state in case xfs_attr_rmtval_remove returns -EAGAIN */
-	dac->dela_state = XFS_DAS_RM_NBLK;
+	attr->xattri_dela_state = XFS_DAS_RM_NBLK;
 das_rm_nblk:
 	if (args->rmtblkno) {
-		error = xfs_attr_rmtval_remove(dac);
+		error = xfs_attr_rmtval_remove(attr);
 
 		if (error == -EAGAIN)
-			trace_xfs_das_state_return(dac->dela_state);
+			trace_xfs_das_state_return(attr->xattri_dela_state);
 
 		if (error)
 			return error;
@@ -1344,10 +1344,10 @@ xfs_attr_leaf_mark_incomplete(
  */
 STATIC
 int xfs_attr_node_removename_setup(
-	struct xfs_delattr_context	*dac)
+	struct xfs_attr_item		*attr)
 {
-	struct xfs_da_args		*args = dac->da_args;
-	struct xfs_da_state		**state = &dac->da_state;
+	struct xfs_da_args		*args = attr->xattri_da_args;
+	struct xfs_da_state		**state = &attr->xattri_da_state;
 	int				error;
 
 	error = xfs_attr_node_hasname(args, state);
@@ -1371,7 +1371,7 @@ int xfs_attr_node_removename_setup(
 
 STATIC int
 xfs_attr_node_remove_rmt (
-	struct xfs_delattr_context	*dac,
+	struct xfs_attr_item		*attr,
 	struct xfs_da_state		*state)
 {
 	int				error = 0;
@@ -1379,9 +1379,9 @@ xfs_attr_node_remove_rmt (
 	/*
 	 * May return -EAGAIN to request that the caller recall this function
 	 */
-	error = xfs_attr_rmtval_remove(dac);
+	error = xfs_attr_rmtval_remove(attr);
 	if (error == -EAGAIN)
-		trace_xfs_das_state_return(dac->dela_state);
+		trace_xfs_das_state_return(attr->xattri_dela_state);
 	if (error)
 		return error;
 
@@ -1425,10 +1425,10 @@ xfs_attr_node_remove_cleanup(
  */
 STATIC int
 xfs_attr_node_remove_step(
-	struct xfs_delattr_context	*dac)
+	struct xfs_attr_item		*attr)
 {
-	struct xfs_da_args		*args = dac->da_args;
-	struct xfs_da_state		*state = dac->da_state;
+	struct xfs_da_args		*args = attr->xattri_da_args;
+	struct xfs_da_state		*state = attr->xattri_da_state;
 	int				error = 0;
 	/*
 	 * If there is an out-of-line value, de-allocate the blocks.
@@ -1439,7 +1439,7 @@ xfs_attr_node_remove_step(
 		/*
 		 * May return -EAGAIN. Remove blocks until args->rmtblkno == 0
 		 */
-		error = xfs_attr_node_remove_rmt(dac, state);
+		error = xfs_attr_node_remove_rmt(attr, state);
 		if (error)
 			return error;
 	}
@@ -1460,29 +1460,29 @@ xfs_attr_node_remove_step(
  */
 STATIC int
 xfs_attr_node_removename_iter(
-	struct xfs_delattr_context	*dac)
+	struct xfs_attr_item		*attr)
 {
-	struct xfs_da_args		*args = dac->da_args;
+	struct xfs_da_args		*args = attr->xattri_da_args;
 	struct xfs_da_state		*state = NULL;
 	int				retval, error;
 	struct xfs_inode		*dp = args->dp;
 
 	trace_xfs_attr_node_removename(args);
 
-	if (!dac->da_state) {
-		error = xfs_attr_node_removename_setup(dac);
+	if (!attr->xattri_da_state) {
+		error = xfs_attr_node_removename_setup(attr);
 		if (error)
 			goto out;
 	}
-	state = dac->da_state;
+	state = attr->xattri_da_state;
 
-	switch (dac->dela_state) {
+	switch (attr->xattri_dela_state) {
 	case XFS_DAS_UNINIT:
 		/*
 		 * repeatedly remove remote blocks, remove the entry and join.
 		 * returns -EAGAIN or 0 for completion of the step.
 		 */
-		error = xfs_attr_node_remove_step(dac);
+		error = xfs_attr_node_remove_step(attr);
 		if (error)
 			break;
 
@@ -1498,8 +1498,8 @@ xfs_attr_node_removename_iter(
 			if (error)
 				return error;
 
-			dac->dela_state = XFS_DAS_RM_SHRINK;
-			trace_xfs_das_state_return(dac->dela_state);
+			attr->xattri_dela_state = XFS_DAS_RM_SHRINK;
+			trace_xfs_das_state_return(attr->xattri_dela_state);
 			return -EAGAIN;
 		}
 
@@ -1519,7 +1519,7 @@ xfs_attr_node_removename_iter(
 	}
 
 	if (error == -EAGAIN) {
-		trace_xfs_das_state_return(dac->dela_state);
+		trace_xfs_das_state_return(attr->xattri_dela_state);
 		return error;
 	}
 out:
