@@ -592,6 +592,11 @@ static inline bool xfs_sb_version_needsrepair(struct xfs_sb *sbp)
 		(sbp->sb_features_incompat & XFS_SB_FEAT_INCOMPAT_NEEDSREPAIR);
 }
 
+static inline bool xfs_sb_version_hasparent(struct xfs_sb *sbp)
+{
+	return false; /* We'll enable this at the end of the set */
+}
+
 /*
  * end of superblock version macros
  */
