@@ -268,60 +268,6 @@ xfs_attr_set_shortform(
 }
 
 /*
- * Checks to see if a delayed attribute transaction should be rolled.  If so,
- * also checks for a defer finish.  Transaction is finished and rolled as
- * needed, and returns true of false if the delayed operation should continue.
- */
-STATIC int
-xfs_attr_trans_roll(
-	struct xfs_delattr_context	*dac)
-{
-	struct xfs_da_args		*args = dac->da_args;
-	int				error;
-
-	if (dac->flags & XFS_DAC_DEFER_FINISH) {
-		/*
-		 * The caller wants us to finish all the deferred ops so that we
-		 * avoid pinning the log tail with a large number of deferred
-		 * ops.
-		 */
-		dac->flags &= ~XFS_DAC_DEFER_FINISH;
-		error = xfs_defer_finish(&args->trans);
-		if (error)
-			return error;
-	} else
-		error = xfs_trans_roll_inode(&args->trans, args->dp);
-
-	return error;
-}
-
-/*
- * Set the attribute specified in @args.
- */
-int
-xfs_attr_set_args(
-	struct xfs_da_args	*args)
-{
-	struct xfs_buf			*leaf_bp = NULL;
-	int				error = 0;
-	struct xfs_delattr_context	dac = {
-		.da_args	= args,
-	};
-
-	do {
-		error = xfs_attr_set_iter(&dac, &leaf_bp);
-		if (error != -EAGAIN)
-			break;
-
-		error = xfs_attr_trans_roll(&dac);
-		if (error)
-			return error;
-	} while (true);
-
-	return error;
-}
-
-/*
  * Set the attribute specified in @args.
  * This routine is meant to function as a delayed operation, and may return
  * -EAGAIN when the transaction needs to be rolled.  Calling functions will need
@@ -330,11 +276,11 @@ xfs_attr_set_args(
  */
 int
 xfs_attr_set_iter(
-	struct xfs_delattr_context	*dac,
-	struct xfs_buf			**leaf_bp)
+	struct xfs_delattr_context	*dac)
 {
 	struct xfs_da_args		*args = dac->da_args;
 	struct xfs_inode		*dp = args->dp;
+	struct xfs_buf			**leaf_bp = &dac->leaf_bp;
 	int				error = 0;
 
 	/* State machine switch */
@@ -368,11 +314,7 @@ xfs_attr_set_iter(
 		 * continue.  Otherwise, is it converted from shortform to leaf
 		 * and -EAGAIN is returned.
 		 */
-		error = xfs_attr_set_shortform(args, leaf_bp);
-		if (error == -EAGAIN)
-			dac->flags |= XFS_DAC_DEFER_FINISH;
-
-		return error;
+		return xfs_attr_set_shortform(args, leaf_bp);
 	}
 
 	/*
@@ -409,7 +351,6 @@ xfs_attr_set_iter(
 		 * when we come back, we'll be a node, so we'll fall
 		 * down into the node handling code below
 		 */
-		dac->flags |= XFS_DAC_DEFER_FINISH;
 		trace_xfs_das_state_return(dac->dela_state);
 		return -EAGAIN;
 	case 0:
@@ -449,32 +390,6 @@ xfs_has_attr(
 	}
 
 	return xfs_attr_node_hasname(args, NULL);
-}
-
-/*
- * Remove the attribute specified in @args.
- */
-int
-xfs_attr_remove_args(
-	struct xfs_da_args	*args)
-{
-	int				error;
-	struct xfs_delattr_context	dac = {
-		.da_args	= args,
-	};
-
-	do {
-		error = xfs_attr_remove_iter(&dac);
-		if (error != -EAGAIN)
-			break;
-
-		error = xfs_attr_trans_roll(&dac);
-		if (error)
-			return error;
-
-	} while (true);
-
-	return error;
 }
 
 /*
@@ -897,7 +812,6 @@ xfs_attr_leaf_addname(
 		if (error)
 			return error;
 
-		dac->flags |= XFS_DAC_DEFER_FINISH;
 		trace_xfs_das_state_return(dac->dela_state);
 		return -EAGAIN;
 	}
@@ -1205,7 +1119,6 @@ xfs_attr_node_addname(
 			 * this. dela_state is still unset by this function at
 			 * this point.
 			 */
-			dac->flags |= XFS_DAC_DEFER_FINISH;
 			trace_xfs_das_state_return(dac->dela_state);
 			return -EAGAIN;
 		}
@@ -1219,7 +1132,6 @@ xfs_attr_node_addname(
 		error = xfs_da3_split(state);
 		if (error)
 			goto out;
-		dac->flags |= XFS_DAC_DEFER_FINISH;
 	} else {
 		/*
 		 * Addition succeeded, update Btree hashvals.
@@ -1267,7 +1179,6 @@ das_alloc_node:
 			if (error)
 				return error;
 
-			dac->flags |= XFS_DAC_DEFER_FINISH;
 			trace_xfs_das_state_return(dac->dela_state);
 			return -EAGAIN;
 		}
@@ -1587,7 +1498,6 @@ xfs_attr_node_removename_iter(
 			if (error)
 				return error;
 
-			dac->flags |= XFS_DAC_DEFER_FINISH;
 			dac->dela_state = XFS_DAS_RM_SHRINK;
 			trace_xfs_das_state_return(dac->dela_state);
 			return -EAGAIN;
