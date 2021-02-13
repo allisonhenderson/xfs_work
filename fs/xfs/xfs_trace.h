@@ -3887,6 +3887,26 @@ DEFINE_EVENT(xfs_timestamp_range_class, name, \
 DEFINE_TIMESTAMP_RANGE_EVENT(xfs_inode_timestamp_range);
 DEFINE_TIMESTAMP_RANGE_EVENT(xfs_quota_expiry_range);
 
+
+DECLARE_EVENT_CLASS(xfs_das_state_class,
+	TP_PROTO(int das),
+	TP_ARGS(das),
+	TP_STRUCT__entry(
+		__field(int, das)
+	),
+	TP_fast_assign(
+		__entry->das = das;
+	),
+	TP_printk("state change %d",
+		  __entry->das)
+)
+
+#define DEFINE_DAS_STATE_EVENT(name) \
+DEFINE_EVENT(xfs_das_state_class, name, \
+	TP_PROTO(int das), \
+	TP_ARGS(das))
+DEFINE_DAS_STATE_EVENT(xfs_das_state_return);
+
 #endif /* _TRACE_XFS_H */
 
 #undef TRACE_INCLUDE_PATH
