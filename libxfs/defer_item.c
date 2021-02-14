@@ -131,7 +131,6 @@ int
 xfs_trans_attr(
 	struct xfs_delattr_context	*dac,
 	struct xfs_attrd_log_item	*attrdp,
-	struct xfs_buf			**leaf_bp,
 	uint32_t			op_flags)
 {
 	struct xfs_da_args		*args = dac->da_args;
@@ -144,7 +143,7 @@ xfs_trans_attr(
 	switch (op_flags) {
 	case XFS_ATTR_OP_FLAGS_SET:
 		args->op_flags |= XFS_DA_OP_ADDNAME;
-		error = xfs_attr_set_iter(dac, leaf_bp);
+		error = xfs_attr_set_iter(dac);
 		break;
 	case XFS_ATTR_OP_FLAGS_REMOVE:
 		ASSERT(XFS_IFORK_Q((args->dp)));
@@ -216,8 +215,7 @@ xfs_attr_finish_item(
 	 */
 	dac->da_args->trans = tp;
 
-	error = xfs_trans_attr(dac, ATTRD_ITEM(done), &dac->leaf_bp,
-			       attr->xattri_op_flags);
+	error = xfs_trans_attr(dac, ATTRD_ITEM(done), attr->xattri_op_flags);
 	if (error != -EAGAIN)
 		kmem_free(attr);
 
