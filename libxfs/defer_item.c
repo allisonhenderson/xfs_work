@@ -118,9 +118,15 @@ const struct xfs_defer_op_type xfs_extent_free_defer_type = {
 
 static inline struct xfs_attrd_log_item *ATTRD_ITEM(struct xfs_log_item *lip)
 {
-	return NULL;
+	return container_of(lip, struct xfs_attrd_log_item, attrd_item);
 }
 
+/*
+ * Performs one step of an attribute update intent and marks the attrd item
+ * dirty..  An attr operation may be a set or a remove.  Note that the
+ * transaction is marked dirty regardless of whether the operation succeeds or
+ * fails to support the ATTRI/ATTRD lifecycle rules.
+ */
 int
 xfs_trans_attr_finish_update(
 	struct xfs_delattr_context	*dac,
@@ -128,9 +134,40 @@ xfs_trans_attr_finish_update(
 	struct xfs_buf			**leaf_bp,
 	uint32_t			op_flags)
 {
-	return 0;
+	struct xfs_da_args		*args = dac->da_args;
+	int				error;
+
+	error = xfs_qm_dqattach_locked(args->dp, 0);
+	if (error)
+		return error;
+
+	switch (op_flags) {
+	case XFS_ATTR_OP_FLAGS_SET:
+		args->op_flags |= XFS_DA_OP_ADDNAME;
+		error = xfs_attr_set_iter(dac, leaf_bp);
+		break;
+	case XFS_ATTR_OP_FLAGS_REMOVE:
+		ASSERT(XFS_IFORK_Q(args->dp));
+		error = xfs_attr_remove_iter(dac);
+		break;
+	default:
+		error = -EFSCORRUPTED;
+		break;
+	}
+
+	/*
+	 * Mark the transaction dirty, even on error. This ensures the
+	 * transaction is aborted, which:
+	 *
+	 * 1.) releases the ATTRI and frees the ATTRD
+	 * 2.) shuts down the filesystem
+	 */
+	args->trans->t_flags |= XFS_TRANS_DIRTY;
+
+	return error;
 }
 
+/* Get an ATTRI. */
 static struct xfs_log_item *
 xfs_attr_create_intent(
 	struct xfs_trans		*tp,
@@ -141,12 +178,14 @@ xfs_attr_create_intent(
 	return NULL;
 }
 
+/* Abort all pending ATTRs. */
 STATIC void
 xfs_attr_abort_intent(
 	struct xfs_log_item		*intent)
 {
 }
 
+/* Get an ATTRD so we can process all the attrs. */
 static struct xfs_log_item *
 xfs_attr_create_done(
 	struct xfs_trans		*tp,
@@ -156,6 +195,7 @@ xfs_attr_create_done(
 	return NULL;
 }
 
+/* Process an attr. */
 STATIC int
 xfs_attr_finish_item(
 	struct xfs_trans		*tp,
@@ -163,13 +203,53 @@ xfs_attr_finish_item(
 	struct list_head		*item,
 	struct xfs_btree_cur		**state)
 {
-	return 0;
+	struct xfs_attr_item		*attr;
+	struct xfs_attrd_log_item	*done_item = NULL;
+	int				error;
+	struct xfs_delattr_context	*dac;
+
+	attr = container_of(item, struct xfs_attr_item, xattri_list);
+	dac = &attr->xattri_dac;
+	if (done)
+		done_item = ATTRD_ITEM(done);
+
+	/*
+	 * Corner case that can happen during a recovery.  Because the first
+	 * iteration of a multi part delay op happens in xfs_attri_item_recover
+	 * to maintain the order of the log replay items.  But the new
+	 * transactions do not automatically rejoin during a recovery as they do
+	 * in a standard delay op, so we need to catch this here and rejoin the
+	 * leaf to the new transaction
+	 */
+	if (attr->xattri_dac.leaf_bp &&
+	    attr->xattri_dac.leaf_bp->b_transp != tp) {
+		xfs_trans_bjoin(tp, attr->xattri_dac.leaf_bp);
+		xfs_trans_bhold(tp, attr->xattri_dac.leaf_bp);
+	}
+
+	/*
+	 * Always reset trans after EAGAIN cycle
+	 * since the transaction is new
+	 */
+	dac->da_args->trans = tp;
+
+	error = xfs_trans_attr_finish_update(dac, done_item, &dac->leaf_bp,
+					     attr->xattri_op_flags);
+	if (error != -EAGAIN)
+		kmem_free(attr);
+
+	return error;
 }
 
+/* Cancel an attr */
 STATIC void
 xfs_attr_cancel_item(
 	struct list_head		*item)
 {
+	struct xfs_attr_item		*attr;
+
+	attr = container_of(item, struct xfs_attr_item, xattri_list);
+	kmem_free(attr);
 }
 
 const struct xfs_defer_op_type xfs_attr_defer_type = {
