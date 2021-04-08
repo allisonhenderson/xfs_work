@@ -159,7 +159,6 @@
 #define trace_xfs_attr_node_get(a)		((void) 0)
 #define trace_xfs_attr_rmtval_get(a)		((void) 0)
 #define trace_xfs_attr_rmtval_set(a)		((void) 0)
-#define trace_xfs_attr_rmtval_remove(a)		((void) 0)
 
 #define trace_xfs_bmap_pre_update(a,b,c,d)	((void) 0)
 #define trace_xfs_bmap_post_update(a,b,c,d)	((void) 0)
