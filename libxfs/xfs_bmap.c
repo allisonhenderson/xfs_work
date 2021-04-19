@@ -2931,7 +2931,7 @@ done:
  */
 
 /*
- * Adjust the size of the new extent based on di_extsize and rt extsize.
+ * Adjust the size of the new extent based on i_extsize and rt extsize.
  */
 int
 xfs_bmap_extsize_align(
