@@ -624,7 +624,6 @@ xfs_bmap_btree_to_extents(
 		cur->bc_bufs[0] = NULL;
 	xfs_iroot_realloc(ip, -1, whichfork);
 	ASSERT(ifp->if_broot == NULL);
-	ASSERT((ifp->if_flags & XFS_IFBROOT) == 0);
 	ifp->if_format = XFS_DINODE_FMT_EXTENTS;
 	*logflagsp |= XFS_ILOG_CORE | xfs_ilog_fext(whichfork);
 	return 0;
@@ -668,7 +667,6 @@ xfs_bmap_extents_to_btree(
 	 * to expand the root.
 	 */
 	xfs_iroot_realloc(ip, 1, whichfork);
-	ifp->if_flags |= XFS_IFBROOT;
 
 	/*
 	 * Fill in the root.
@@ -4183,7 +4181,7 @@ xfs_bmapi_allocate(
 			return error;
 	}
 
-	if ((ifp->if_flags & XFS_IFBROOT) && !bma->cur)
+	if (ifp->if_format == XFS_DINODE_FMT_BTREE && !bma->cur)
 		bma->cur = xfs_bmbt_init_cursor(mp, bma->tp, bma->ip, whichfork);
 	/*
 	 * Bump the number of extents we've allocated
@@ -4256,7 +4254,7 @@ xfs_bmapi_convert_unwritten(
 	 * Modify (by adding) the state flag, if writing.
 	 */
 	ASSERT(mval->br_blockcount <= len);
-	if ((ifp->if_flags & XFS_IFBROOT) && !bma->cur) {
+	if (ifp->if_format == XFS_DINODE_FMT_BTREE && !bma->cur) {
 		bma->cur = xfs_bmbt_init_cursor(bma->ip->i_mount, bma->tp,
 					bma->ip, whichfork);
 	}
@@ -4719,7 +4717,7 @@ xfs_bmapi_remap(
 	ip->i_nblocks += len;
 	xfs_trans_log_inode(tp, ip, XFS_ILOG_CORE);
 
-	if (ifp->if_flags & XFS_IFBROOT) {
+	if (ifp->if_format == XFS_DINODE_FMT_BTREE) {
 		cur = xfs_bmbt_init_cursor(mp, tp, ip, whichfork);
 		cur->bc_ino.flags = 0;
 	}
@@ -5398,7 +5396,7 @@ __xfs_bunmapi(
 	end--;
 
 	logflags = 0;
-	if (ifp->if_flags & XFS_IFBROOT) {
+	if (ifp->if_format == XFS_DINODE_FMT_BTREE) {
 		ASSERT(ifp->if_format == XFS_DINODE_FMT_BTREE);
 		cur = xfs_bmbt_init_cursor(mp, tp, ip, whichfork);
 		cur->bc_ino.flags = 0;
@@ -5872,7 +5870,7 @@ xfs_bmap_collapse_extents(
 	if (error)
 		return error;
 
-	if (ifp->if_flags & XFS_IFBROOT) {
+	if (ifp->if_format == XFS_DINODE_FMT_BTREE) {
 		cur = xfs_bmbt_init_cursor(mp, tp, ip, whichfork);
 		cur->bc_ino.flags = 0;
 	}
@@ -5987,7 +5985,7 @@ xfs_bmap_insert_extents(
 	if (error)
 		return error;
 
-	if (ifp->if_flags & XFS_IFBROOT) {
+	if (ifp->if_format == XFS_DINODE_FMT_BTREE) {
 		cur = xfs_bmbt_init_cursor(mp, tp, ip, whichfork);
 		cur->bc_ino.flags = 0;
 	}
@@ -6102,7 +6100,7 @@ xfs_bmap_split_extent(
 	new.br_blockcount = got.br_blockcount - gotblkcnt;
 	new.br_state = got.br_state;
 
-	if (ifp->if_flags & XFS_IFBROOT) {
+	if (ifp->if_format == XFS_DINODE_FMT_BTREE) {
 		cur = xfs_bmbt_init_cursor(mp, tp, ip, whichfork);
 		cur->bc_ino.flags = 0;
 		error = xfs_bmbt_lookup_eq(cur, &got, &i);
