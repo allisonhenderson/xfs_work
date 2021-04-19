@@ -148,7 +148,6 @@
 #define trace_xfs_attr_leaf_flipflags(a)	((void) 0)
 
 #define trace_xfs_attr_sf_addname(a)		((void) 0)
-#define trace_xfs_attr_leaf_addname(a)		((void) 0)
 #define trace_xfs_attr_leaf_replace(a)		((void) 0)
 #define trace_xfs_attr_leaf_removename(a)	((void) 0)
 #define trace_xfs_attr_leaf_get(a)		((void) 0)
