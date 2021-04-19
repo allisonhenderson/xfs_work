@@ -130,6 +130,7 @@ static inline xfs_fsize_t XFS_ISIZE(struct xfs_inode *ip)
 	return ip->i_d.di_size;
 }
 #define XFS_IS_REALTIME_INODE(ip) ((ip)->i_d.di_flags & XFS_DIFLAG_REALTIME)
+#define xfs_iflags_set(ip, flags)
 
 /* inode link counts */
 static inline void set_nlink(struct inode *inode, uint32_t nlink)
