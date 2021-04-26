@@ -35,6 +35,7 @@
 #include "xfs_log.h"
 #include "xfs_bmap_btree.h"
 #include "xfs_reflink.h"
+#include "xfs_parent.h"
 
 kmem_zone_t *xfs_inode_zone;
 
@@ -1004,26 +1005,39 @@ xfs_bumplink(
 
 int
 xfs_create(
-	struct user_namespace	*mnt_userns,
-	xfs_inode_t		*dp,
-	struct xfs_name		*name,
-	umode_t			mode,
-	dev_t			rdev,
-	bool			init_xattrs,
-	xfs_inode_t		**ipp)
+	struct user_namespace		*mnt_userns,
+	xfs_inode_t			*dp,
+	struct xfs_name			*name,
+	umode_t				mode,
+	dev_t				rdev,
+	bool				init_xattrs,
+	xfs_inode_t			**ipp)
 {
-	int			is_dir = S_ISDIR(mode);
-	struct xfs_mount	*mp = dp->i_mount;
-	struct xfs_inode	*ip = NULL;
-	struct xfs_trans	*tp = NULL;
-	int			error;
-	bool                    unlock_dp_on_error = false;
-	prid_t			prid;
-	struct xfs_dquot	*udqp = NULL;
-	struct xfs_dquot	*gdqp = NULL;
-	struct xfs_dquot	*pdqp = NULL;
-	struct xfs_trans_res	*tres;
-	uint			resblks;
+	int				is_dir = S_ISDIR(mode);
+	struct xfs_mount		*mp = dp->i_mount;
+	struct xfs_inode		*ip = NULL;
+	struct xfs_trans		*tp = NULL;
+	int				error;
+	bool				unlock_dp_on_error = false;
+	prid_t				prid;
+	struct xfs_dquot		*udqp = NULL;
+	struct xfs_dquot		*gdqp = NULL;
+	struct xfs_dquot		*pdqp = NULL;
+	struct xfs_trans_res		*tres;
+	uint				resblks;
+	xfs_dir2_dataptr_t		diroffset;
+	struct xfs_parent_name_rec	rec;
+	struct xfs_da_args		args = {
+		.dp		= dp,
+		.geo		= mp->m_attr_geo,
+		.whichfork	= XFS_ATTR_FORK,
+		.attr_filter	= XFS_ATTR_PARENT,
+		.op_flags	= XFS_DA_OP_OKNOENT,
+		.name		= (const uint8_t *)&rec,
+		.namelen	= sizeof(rec),
+		.value		= (void *)name->name,
+		.valuelen	= name->len,
+	};
 
 	trace_xfs_create(dp, name);
 
@@ -1092,11 +1106,12 @@ xfs_create(
 	 * the transaction cancel unlocking dp so don't do it explicitly in the
 	 * error path.
 	 */
-	xfs_trans_ijoin(tp, dp, XFS_ILOCK_EXCL);
+	xfs_trans_ijoin(tp, dp, 0);
 	unlock_dp_on_error = false;
 
 	error = xfs_dir_createname(tp, dp, name, ip->i_ino,
-				   resblks - XFS_IALLOC_SPACE_RES(mp), NULL);
+				   resblks - XFS_IALLOC_SPACE_RES(mp),
+				   &diroffset);
 	if (error) {
 		ASSERT(error != -ENOSPC);
 		goto out_trans_cancel;
@@ -1110,6 +1125,20 @@ xfs_create(
 			goto out_trans_cancel;
 
 		xfs_bumplink(tp, dp);
+	}
+
+	/*
+	 * If we have parent pointers, we need to add the attribute containing
+	 * the parent information now.
+	 */
+	if (xfs_sb_version_hasparent(&mp->m_sb)) {
+		xfs_init_parent_name_rec(&rec, dp, diroffset);
+		args.dp	= ip;
+		args.trans = tp;
+		args.hashval = xfs_da_hashname(args.name, args.namelen);
+		error =  xfs_attr_set_deferred(&args);
+		if (error)
+			goto out_trans_cancel;
 	}
 
 	/*
@@ -1137,6 +1166,7 @@ xfs_create(
 
 	*ipp = ip;
 	xfs_iunlock(ip, XFS_ILOCK_EXCL);
+	xfs_iunlock(dp, XFS_ILOCK_EXCL | XFS_ILOCK_PARENT);
 	return 0;
 
  out_trans_cancel:
