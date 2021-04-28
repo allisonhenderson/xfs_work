@@ -338,6 +338,15 @@ _require_projid32bit()
 	   || _notrun "mkfs.xfs doesn't have projid32bit feature"
 }
 
+_require_delattr()
+{
+	_scratch_mkfs_xfs > /dev/null 2>&1 \
+		|| _fail "_scratch_mkfs_xfs failed on $SCRATCH_DEV"
+	_try_scratch_mount -o delattr > /dev/null 2>&1 \
+		|| _notrun "delattr mount option not supported on $SCRATCH_DEV"
+	_scratch_unmount
+}
+
 _require_projid16bit()
 {
 	_scratch_mkfs_xfs_supported -i projid32bit=0 >/dev/null 2>&1 \

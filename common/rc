@@ -2306,6 +2306,9 @@ _require_xfs_io_command()
 		rm -f $testcopy > /dev/null 2>&1
 		param_checked="$param"
 		;;
+	"delayed_attr")
+		testio=`$XFS_IO_PROG -x -c "delayed_attr" $TEST_DIR 2>&1`
+		;;
 	"falloc" )
 		testio=`$XFS_IO_PROG -F -f -c "falloc $param 0 1m" $testfile 2>&1`
 		param_checked="$param"
