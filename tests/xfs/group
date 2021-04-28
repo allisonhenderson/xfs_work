@@ -529,3 +529,6 @@
 538 auto stress
 539 auto quick mount
 540 auto quick attr
+541 auto quick parent
+542 auto quick parent
+543 auto quick parent
