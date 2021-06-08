@@ -55,7 +55,8 @@ xlog_grant_push_ail(
 STATIC void
 xlog_sync(
 	struct xlog		*log,
-	struct xlog_in_core	*iclog);
+	struct xlog_in_core	*iclog,
+	struct xlog_ticket	*ticket);
 #if defined(DEBUG)
 STATIC void
 xlog_verify_dest_ptr(
@@ -538,7 +539,8 @@ __xlog_state_release_iclog(
 int
 xlog_state_release_iclog(
 	struct xlog		*log,
-	struct xlog_in_core	*iclog)
+	struct xlog_in_core	*iclog,
+	struct xlog_ticket	*ticket)
 {
 	lockdep_assert_held(&log->l_icloglock);
 
@@ -549,7 +551,7 @@ xlog_state_release_iclog(
 	if (atomic_dec_and_test(&iclog->ic_refcnt) &&
 	    __xlog_state_release_iclog(log, iclog)) {
 		spin_unlock(&log->l_icloglock);
-		xlog_sync(log, iclog);
+		xlog_sync(log, iclog, ticket);
 		spin_lock(&log->l_icloglock);
 	}
 
@@ -914,7 +916,7 @@ out_err:
 	 * iclog containing the unmount record is written.
 	 */
 	iclog->ic_flags |= (XLOG_ICL_NEED_FLUSH | XLOG_ICL_NEED_FUA);
-	error = xlog_state_release_iclog(log, iclog);
+	error = xlog_state_release_iclog(log, iclog, tic);
 	xlog_wait_on_iclog(iclog);
 
 	if (tic) {
@@ -1946,7 +1948,8 @@ xlog_calc_iclog_size(
 STATIC void
 xlog_sync(
 	struct xlog		*log,
-	struct xlog_in_core	*iclog)
+	struct xlog_in_core	*iclog,
+	struct xlog_ticket	*ticket)
 {
 	unsigned int		count;		/* byte count of bwrite */
 	unsigned int		roundoff;       /* roundoff to BB or stripe */
@@ -1958,12 +1961,20 @@ xlog_sync(
 
 	count = xlog_calc_iclog_size(log, iclog, &roundoff);
 
-	/* move grant heads by roundoff in sync */
-	xlog_grant_add_space(log, &log->l_reserve_head.grant, roundoff);
-	xlog_grant_add_space(log, &log->l_write_head.grant, roundoff);
+	/*
+	 * If we have a ticket, account for the roundoff via the ticket
+	 * reservation to avoid touching the hot grant heads needlessly.
+	 * Otherwise, we have to move grant heads directly.
+	 */
+	if (ticket) {
+		ticket->t_curr_res -= roundoff;
+	} else {
+		xlog_grant_add_space(log, &log->l_reserve_head.grant, roundoff);
+		xlog_grant_add_space(log, &log->l_write_head.grant, roundoff);
+	}
 
 	/* put cycle number in every block */
-	xlog_pack_data(log, iclog, roundoff); 
+	xlog_pack_data(log, iclog, roundoff);
 
 	/* real byte length */
 	size = iclog->ic_offset;
@@ -2203,7 +2214,7 @@ xlog_write_get_more_iclog_space(
 	xlog_state_finish_copy(log, iclog, *record_cnt, *data_cnt);
 	ASSERT(iclog->ic_state == XLOG_STATE_WANT_SYNC ||
 	       iclog->ic_state == XLOG_STATE_IOERROR);
-	error = xlog_state_release_iclog(log, iclog);
+	error = xlog_state_release_iclog(log, iclog, ticket);
 	spin_unlock(&log->l_icloglock);
 	if (error)
 		return error;
@@ -2473,7 +2484,7 @@ xlog_write(
 	if (commit_iclog)
 		*commit_iclog = iclog;
 	else
-		error = xlog_state_release_iclog(log, iclog);
+		error = xlog_state_release_iclog(log, iclog, ticket);
 	spin_unlock(&log->l_icloglock);
 
 	return error;
@@ -2940,7 +2951,7 @@ restart:
 		 * reference to the iclog.
 		 */
 		if (!atomic_add_unless(&iclog->ic_refcnt, -1, 1))
-			error = xlog_state_release_iclog(log, iclog);
+			error = xlog_state_release_iclog(log, iclog, ticket);
 		spin_unlock(&log->l_icloglock);
 		if (error)
 			return error;
@@ -3171,7 +3182,7 @@ xfs_log_force(
 			atomic_inc(&iclog->ic_refcnt);
 			lsn = be64_to_cpu(iclog->ic_header.h_lsn);
 			xlog_state_switch_iclogs(log, iclog, 0);
-			if (xlog_state_release_iclog(log, iclog))
+			if (xlog_state_release_iclog(log, iclog, NULL))
 				goto out_error;
 
 			if (be64_to_cpu(iclog->ic_header.h_lsn) != lsn)
@@ -3265,7 +3276,7 @@ xlog_force_lsn(
 		}
 		atomic_inc(&iclog->ic_refcnt);
 		xlog_state_switch_iclogs(log, iclog, 0);
-		if (xlog_state_release_iclog(log, iclog))
+		if (xlog_state_release_iclog(log, iclog, NULL))
 			goto out_error;
 		if (log_flushed)
 			*log_flushed = 1;
