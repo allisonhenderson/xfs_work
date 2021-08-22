@@ -4017,7 +4017,7 @@ xfs_attr_use_log_assist(
 	 * If log-assisted xattrs are already enabled, the caller can use the
 	 * log assisted swap functions with the log-incompat reference we got.
 	 */
-	if (sb_version_haslogxattrs(&mp->m_sb))
+	if (xfs_sb_version_haslogxattrs(&mp->m_sb))
 		return 0;
 
 	/* Enable log-assisted xattrs. */
