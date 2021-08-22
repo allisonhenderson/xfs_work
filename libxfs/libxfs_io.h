@@ -97,6 +97,7 @@ struct xfs_buf {
 	struct xfs_buf_map	__b_map;
 	int			b_nmaps;
 	struct list_head	b_list;
+	struct list_head	b_delay;
 };
 
 bool xfs_verify_magic(struct xfs_buf *bp, __be32 dmagic);
