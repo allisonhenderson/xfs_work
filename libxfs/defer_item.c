@@ -124,7 +124,6 @@ const struct xfs_defer_op_type xfs_extent_free_defer_type = {
 STATIC int
 xfs_trans_attr_finish_update(
 	struct xfs_delattr_context	*dac,
-	struct xfs_buf			**leaf_bp,
 	uint32_t			op_flags)
 {
 	struct xfs_da_args		*args = dac->da_args;
@@ -134,7 +133,7 @@ xfs_trans_attr_finish_update(
 
 	switch (op) {
 	case XFS_ATTR_OP_FLAGS_SET:
-		error = xfs_attr_set_iter(dac, leaf_bp);
+		error = xfs_attr_set_iter(dac);
 		break;
 	case XFS_ATTR_OP_FLAGS_REMOVE:
 		ASSERT(XFS_IFORK_Q(args->dp));
@@ -206,8 +205,7 @@ xfs_attr_finish_item(
 	 */
 	dac->da_args->trans = tp;
 
-	error = xfs_trans_attr_finish_update(dac, &dac->leaf_bp,
-					     attr->xattri_op_flags);
+	error = xfs_trans_attr_finish_update(dac, attr->xattri_op_flags);
 	if (error != -EAGAIN)
 		kmem_free(attr);
 
