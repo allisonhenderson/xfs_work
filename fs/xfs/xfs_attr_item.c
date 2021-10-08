@@ -295,13 +295,6 @@ xfs_attri_item_match(
 	return ATTRI_ITEM(lip)->attri_format.alfi_id == intent_id;
 }
 
-static const struct xfs_item_ops xfs_attrd_item_ops = {
-	.flags		= XFS_ITEM_RELEASE_WHEN_COMMITTED,
-	.iop_size	= xfs_attrd_item_size,
-	.iop_format	= xfs_attrd_item_format,
-	.iop_release    = xfs_attrd_item_release,
-};
-
 /* Is this recovered ATTRI format ok? */
 static inline bool
 xfs_attri_validate(
@@ -327,15 +320,6 @@ xfs_attri_validate(
 
 	return xfs_verify_ino(mp, attrp->alfi_ino);
 }
-
-static const struct xfs_item_ops xfs_attri_item_ops = {
-	.iop_size	= xfs_attri_item_size,
-	.iop_format	= xfs_attri_item_format,
-	.iop_unpin	= xfs_attri_item_unpin,
-	.iop_committed	= xfs_attri_item_committed,
-	.iop_release    = xfs_attri_item_release,
-	.iop_match	= xfs_attri_item_match,
-};
 
 STATIC int
 xlog_recover_attri_commit_pass2(
@@ -403,11 +387,6 @@ xlog_recover_attri_commit_pass2(
 	return 0;
 }
 
-const struct xlog_recover_item_ops xlog_attri_item_ops = {
-	.item_type	= XFS_LI_ATTRI,
-	.commit_pass2	= xlog_recover_attri_commit_pass2,
-};
-
 /*
  * This routine is called when an ATTRD format structure is found in a committed
  * transaction in the log. Its purpose is to cancel the corresponding ATTRI if
@@ -434,6 +413,27 @@ xlog_recover_attrd_commit_pass2(
 				    attrd_formatp->alfd_alf_id);
 	return 0;
 }
+
+static const struct xfs_item_ops xfs_attri_item_ops = {
+	.iop_size	= xfs_attri_item_size,
+	.iop_format	= xfs_attri_item_format,
+	.iop_unpin	= xfs_attri_item_unpin,
+	.iop_committed	= xfs_attri_item_committed,
+	.iop_release    = xfs_attri_item_release,
+	.iop_match	= xfs_attri_item_match,
+};
+
+const struct xlog_recover_item_ops xlog_attri_item_ops = {
+	.item_type	= XFS_LI_ATTRI,
+	.commit_pass2	= xlog_recover_attri_commit_pass2,
+};
+
+static const struct xfs_item_ops xfs_attrd_item_ops = {
+	.flags		= XFS_ITEM_RELEASE_WHEN_COMMITTED,
+	.iop_size	= xfs_attrd_item_size,
+	.iop_format	= xfs_attrd_item_format,
+	.iop_release    = xfs_attrd_item_release,
+};
 
 const struct xlog_recover_item_ops xlog_attrd_item_ops = {
 	.item_type	= XFS_LI_ATTRD,
