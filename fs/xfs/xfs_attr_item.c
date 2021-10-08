@@ -31,6 +31,8 @@
 
 static const struct xfs_item_ops xfs_attri_item_ops;
 static const struct xfs_item_ops xfs_attrd_item_ops;
+static struct xfs_attrd_log_item *xfs_trans_get_attrd(struct xfs_trans *tp,
+					struct xfs_attri_log_item *attrip);
 
 static inline struct xfs_attri_log_item *ATTRI_ITEM(struct xfs_log_item *lip)
 {
@@ -443,53 +445,6 @@ xfs_attri_item_match(
 	return ATTRI_ITEM(lip)->attri_format.alfi_id == intent_id;
 }
 
-/*
- * This routine is called to allocate an "attr free done" log item.
- */
-static struct xfs_attrd_log_item *
-xfs_trans_get_attrd(struct xfs_trans		*tp,
-		  struct xfs_attri_log_item	*attrip)
-{
-	struct xfs_attrd_log_item		*attrdp;
-	uint					size;
-
-	ASSERT(tp != NULL);
-
-	size = sizeof(struct xfs_attrd_log_item);
-	attrdp = kmem_zalloc(size, 0);
-
-	xfs_log_item_init(tp->t_mountp, &attrdp->attrd_item, XFS_LI_ATTRD,
-			  &xfs_attrd_item_ops);
-	attrdp->attrd_attrip = attrip;
-	attrdp->attrd_format.alfd_alf_id = attrip->attri_format.alfi_id;
-
-	xfs_trans_add_item(tp, &attrdp->attrd_item);
-	return attrdp;
-}
-
-
-/* Get an ATTRD so we can process all the attrs. */
-static struct xfs_log_item *
-xfs_attr_create_done(
-	struct xfs_trans		*tp,
-	struct xfs_log_item		*intent,
-	unsigned int			count)
-{
-	if (!intent)
-		return NULL;
-
-	return &xfs_trans_get_attrd(tp, ATTRI_ITEM(intent))->attrd_item;
-}
-
-const struct xfs_defer_op_type xfs_attr_defer_type = {
-	.max_items	= 1,
-	.create_intent	= xfs_attr_create_intent,
-	.abort_intent	= xfs_attr_abort_intent,
-	.create_done	= xfs_attr_create_done,
-	.finish_item	= xfs_attr_finish_item,
-	.cancel_item	= xfs_attr_cancel_item,
-};
-
 /* Is this recovered ATTRI format ok? */
 static inline bool
 xfs_attri_validate(
@@ -735,6 +690,52 @@ xlog_recover_attri_commit_pass2(
 }
 
 /*
+ * This routine is called to allocate an "attr free done" log item.
+ */
+static struct xfs_attrd_log_item *
+xfs_trans_get_attrd(struct xfs_trans		*tp,
+		  struct xfs_attri_log_item	*attrip)
+{
+	struct xfs_attrd_log_item		*attrdp;
+	uint					size;
+
+	ASSERT(tp != NULL);
+
+	size = sizeof(struct xfs_attrd_log_item);
+	attrdp = kmem_zalloc(size, 0);
+
+	xfs_log_item_init(tp->t_mountp, &attrdp->attrd_item, XFS_LI_ATTRD,
+			  &xfs_attrd_item_ops);
+	attrdp->attrd_attrip = attrip;
+	attrdp->attrd_format.alfd_alf_id = attrip->attri_format.alfi_id;
+
+	xfs_trans_add_item(tp, &attrdp->attrd_item);
+	return attrdp;
+}
+
+/* Get an ATTRD so we can process all the attrs. */
+static struct xfs_log_item *
+xfs_attr_create_done(
+	struct xfs_trans		*tp,
+	struct xfs_log_item		*intent,
+	unsigned int			count)
+{
+	if (!intent)
+		return NULL;
+
+	return &xfs_trans_get_attrd(tp, ATTRI_ITEM(intent))->attrd_item;
+}
+
+const struct xfs_defer_op_type xfs_attr_defer_type = {
+	.max_items	= 1,
+	.create_intent	= xfs_attr_create_intent,
+	.abort_intent	= xfs_attr_abort_intent,
+	.create_done	= xfs_attr_create_done,
+	.finish_item	= xfs_attr_finish_item,
+	.cancel_item	= xfs_attr_cancel_item,
+};
+
+/*
  * This routine is called when an ATTRD format structure is found in a committed
  * transaction in the log. Its purpose is to cancel the corresponding ATTRI if
  * it was still in the log. To do this it searches the AIL for the ATTRI with
@@ -760,6 +761,7 @@ xlog_recover_attrd_commit_pass2(
 				    attrd_formatp->alfd_alf_id);
 	return 0;
 }
+
 static const struct xfs_item_ops xfs_attri_item_ops = {
 	.iop_size	= xfs_attri_item_size,
 	.iop_format	= xfs_attri_item_format,
