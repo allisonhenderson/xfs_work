@@ -172,7 +172,7 @@ xfs_attri_init(
 	uint				size;
 
 	size = sizeof(struct xfs_attri_log_item) + buffer_size;
-	attrip = kvmalloc(size, KM_ZERO);
+	attrip = kvmalloc(size, GFP_KERNEL | __GFP_ZERO);
 	if (attrip == NULL)
 		return NULL;
 
@@ -302,15 +302,17 @@ static const struct xfs_item_ops xfs_attrd_item_ops = {
 	.iop_release    = xfs_attrd_item_release,
 };
 
-/* Is this recovered ATTRI ok? */
+/* Is this recovered ATTRI format ok? */
 static inline bool
 xfs_attri_validate(
 	struct xfs_mount		*mp,
-	struct xfs_attri_log_item	*attrip)
+	struct xfs_attri_log_format	*attrp)
 {
-	struct xfs_attri_log_format     *attrp = &attrip->attri_format;
 	unsigned int			op = attrp->alfi_op_flags &
 					     XFS_ATTR_OP_FLAGS_TYPE_MASK;
+
+	if (attrp->__pad != 0)
+		return false;
 
 	/* alfi_op_flags should be either a set or remove */
 	if (op != XFS_ATTR_OP_FLAGS_SET && op != XFS_ATTR_OP_FLAGS_REMOVE)
@@ -335,8 +337,6 @@ static const struct xfs_item_ops xfs_attri_item_ops = {
 	.iop_match	= xfs_attri_item_match,
 };
 
-
-
 STATIC int
 xlog_recover_attri_commit_pass2(
 	struct xlog                     *log,
@@ -356,9 +356,7 @@ xlog_recover_attri_commit_pass2(
 	attri_formatp = item->ri_buf[region].i_addr;
 
 	/* Validate xfs_attri_log_format */
-	if (attri_formatp->__pad != 0 || attri_formatp->alfi_name_len == 0 ||
-	    (attri_formatp->alfi_op_flags == XFS_ATTR_OP_FLAGS_REMOVE &&
-	    attri_formatp->alfi_value_len != 0)) {
+	if (!xfs_attri_validate(mp, attri_formatp)) {
 		XFS_ERROR_REPORT(__func__, XFS_ERRLEVEL_LOW, mp);
 		return -EFSCORRUPTED;
 	}
@@ -366,6 +364,7 @@ xlog_recover_attri_commit_pass2(
 	buffer_size = attri_formatp->alfi_name_len +
 		      attri_formatp->alfi_value_len;
 
+	/* memory alloc failure will cause replay to abort */
 	attrip = xfs_attri_init(mp, buffer_size);
 	if (attrip == NULL)
 		return -ENOMEM;
