@@ -492,7 +492,7 @@ xfs_attr_set_iter(
 			return -EAGAIN;
 		}
 
-		/* fallthrough */
+		fallthrough;
 	case XFS_DAS_FLIP_LFLAG:
 		/*
 		 * Dismantle the "old" attribute/value pair by removing a
@@ -609,7 +609,7 @@ xfs_attr_set_iter(
 			return -EAGAIN;
 		}
 
-		/* fallthrough */
+		fallthrough;
 	case XFS_DAS_FLIP_NFLAG:
 		/*
 		 * Dismantle the "old" attribute/value pair by removing a
