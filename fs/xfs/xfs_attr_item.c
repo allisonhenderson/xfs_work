@@ -31,12 +31,6 @@
 static const struct xfs_item_ops xfs_attri_item_ops;
 static const struct xfs_item_ops xfs_attrd_item_ops;
 
-/* iovec length must be 32-bit aligned */
-static inline size_t ATTR_NVEC_SIZE(size_t size)
-{
-	return round_up(size, sizeof(int32_t));
-}
-
 static inline struct xfs_attri_log_item *ATTRI_ITEM(struct xfs_log_item *lip)
 {
 	return container_of(lip, struct xfs_attri_log_item, attri_item);
@@ -77,19 +71,15 @@ xfs_attri_item_size(
 {
 	struct xfs_attri_log_item       *attrip = ATTRI_ITEM(lip);
 
+	*nvecs += 2;
+	*nbytes += sizeof(struct xfs_attri_log_format) +
+			xlog_calc_iovec_len(attrip->attri_name_len);
+
+	if (!attrip->attri_value_len)
+		return;
+
 	*nvecs += 1;
-	*nbytes += sizeof(struct xfs_attri_log_format);
-
-	/* Attr set and remove operations require a name */
-	ASSERT(attrip->attri_name_len > 0);
-
-	*nvecs += 1;
-	*nbytes += ATTR_NVEC_SIZE(attrip->attri_name_len);
-
-	if (attrip->attri_value_len > 0) {
-		*nvecs += 1;
-		*nbytes += ATTR_NVEC_SIZE(attrip->attri_value_len);
-	}
+	*nbytes += xlog_calc_iovec_len(attrip->attri_value_len);
 }
 
 /*
@@ -126,11 +116,11 @@ xfs_attri_item_format(
 			sizeof(struct xfs_attri_log_format));
 	xlog_copy_iovec(lv, &vecp, XLOG_REG_TYPE_ATTR_NAME,
 			attrip->attri_name,
-			ATTR_NVEC_SIZE(attrip->attri_name_len));
+			xlog_calc_iovec_len(attrip->attri_name_len));
 	if (attrip->attri_value_len > 0)
 		xlog_copy_iovec(lv, &vecp, XLOG_REG_TYPE_ATTR_VALUE,
 				attrip->attri_value,
-				ATTR_NVEC_SIZE(attrip->attri_value_len));
+				xlog_calc_iovec_len(attrip->attri_value_len));
 }
 
 /*
