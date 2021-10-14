@@ -2468,11 +2468,11 @@ xlog_finish_defer_ops(
 {
 	struct xfs_defer_capture *dfc, *next;
 	struct xfs_trans	*tp;
-	struct xfs_inode	*ip;
 	int			error = 0;
 
 	list_for_each_entry_safe(dfc, next, capture_list, dfc_list) {
 		struct xfs_trans_res	resv;
+		struct xfs_defer_resources dres;
 
 		/*
 		 * Create a new transaction reservation from the captured
@@ -2496,13 +2496,9 @@ xlog_finish_defer_ops(
 		 * from recovering a single intent item.
 		 */
 		list_del_init(&dfc->dfc_list);
-		xfs_defer_ops_continue(dfc, tp, &ip);
-
+		xfs_defer_ops_continue(dfc, tp, &dres);
 		error = xfs_trans_commit(tp);
-		if (ip) {
-			xfs_iunlock(ip, XFS_ILOCK_EXCL);
-			xfs_irele(ip);
-		}
+		xfs_defer_resources_rele(&dres);
 		if (error)
 			return error;
 	}
@@ -2522,7 +2518,7 @@ xlog_abort_defer_ops(
 
 	list_for_each_entry_safe(dfc, next, capture_list, dfc_list) {
 		list_del_init(&dfc->dfc_list);
-		xfs_defer_ops_release(mp, dfc);
+		xfs_defer_ops_capture_free(mp, dfc);
 	}
 }
 /*
