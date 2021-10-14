@@ -2467,7 +2467,6 @@ xlog_finish_defer_ops(
 	struct list_head	*capture_list)
 {
 	struct xfs_defer_capture *dfc, *next;
-	struct xfs_buf		*bp, *bnext;
 	struct xfs_trans	*tp;
 	struct xfs_inode	*ip;
 	int			error = 0;
@@ -2490,12 +2489,6 @@ xlog_finish_defer_ops(
 		if (error) {
 			xfs_force_shutdown(mp, SHUTDOWN_LOG_IO_ERROR);
 			return error;
-		}
-
-		list_for_each_entry_safe(bp, bnext, &dfc->dfc_buffers, b_delay) {
-			xfs_trans_bjoin(tp, bp);
-			xfs_trans_bhold(tp, bp);
-			list_del_init(&bp->b_delay);
 		}
 
 		/*
