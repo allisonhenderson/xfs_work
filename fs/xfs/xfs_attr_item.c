@@ -563,10 +563,17 @@ xfs_attri_item_recover(
 		goto out_unlock;
 	}
 
-	error = xfs_defer_ops_capture_and_commit(tp, ip, capture_list,
-						 attr->xattri_leaf_bp);
+
+	error = xfs_defer_ops_capture_and_commit(tp, capture_list);
+	if (error) {
+		xfs_trans_cancel(tp);
+		goto out_unlock;
+	}
 
 out_unlock:
+	if (attr->xattri_leaf_bp)
+		xfs_buf_relse(attr->xattri_leaf_bp);
+
 	xfs_iunlock(ip, XFS_ILOCK_EXCL);
 	xfs_irele(ip);
 out:
