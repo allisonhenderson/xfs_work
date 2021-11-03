@@ -565,10 +565,6 @@ xfs_attri_item_recover(
 
 
 	error = xfs_defer_ops_capture_and_commit(tp, capture_list);
-	if (error) {
-		xfs_trans_cancel(tp);
-		goto out_unlock;
-	}
 
 out_unlock:
 	if (attr->xattri_leaf_bp)
