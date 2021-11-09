@@ -314,4 +314,10 @@
 #define trace_xfs_perag_get_tag(a,b,c,d)	((c) = (c))
 #define trace_xfs_perag_put(a,b,c,d)		((c) = (c))
 
+#define trace_xfs_attr_sf_addname_return(a,b)	((void) 0)
+#define trace_xfs_attr_set_iter_return(a,b)	((void) 0)
+#define trace_xfs_attr_node_addname_return(a,b)	((void) 0)
+#define trace_xfs_attr_remove_iter_return(a,b)	((void) 0)
+#define trace_xfs_attr_rmtval_remove_return(a,b)	((void) 0)
+
 #endif /* __TRACE_H__ */
