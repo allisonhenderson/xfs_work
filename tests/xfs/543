@@ -16,7 +16,7 @@ _begin_fstest auto quick attr
 
 _cleanup()
 {
-	rm -rf $tmp.* $testdir
+	rm -rf $tmp.*
 	test -w /sys/fs/xfs/debug/larp && \
 		echo 0 > /sys/fs/xfs/debug/larp
 }
@@ -46,7 +46,9 @@ test_attr_replay()
 	touch $testfile
 
 	# Verify attr recovery
-	{ $ATTR_PROG -g $attr_name $testfile | md5sum; } 2>&1 | _filter_scratch
+	$ATTR_PROG -l $testfile | _filter_scratch
+	echo -n "$attr_name: "
+	$ATTR_PROG -q -g $attr_name $testfile | md5sum;
 
 	echo ""
 }
@@ -157,19 +159,19 @@ create_test_file remote_file2 1 $attr64k
 test_attr_replay remote_file2 "attr_name2" $attr64k "s" "larp"
 test_attr_replay remote_file2 "attr_name2" $attr64k "r" "larp"
 
-# replace shortform
+# replace shortform with different value
 create_test_file sf_file 2 $attr64
-test_attr_replay sf_file "attr_name2" $attr64 "s" "larp"
+test_attr_replay sf_file "attr_name2" $attr16 "s" "larp"
 
-# replace leaf
-create_test_file leaf_file 2 $attr1k
-test_attr_replay leaf_file "attr_name2" $attr1k "s" "larp"
+# replace leaf with different value
+create_test_file leaf_file 3 $attr1k
+test_attr_replay leaf_file "attr_name2" $attr256 "s" "larp"
 
-# replace node
+# replace node with a different value
 create_test_file node_file 1 $attr64k
 $ATTR_PROG -s "attr_name2" -V $attr1k $testdir/node_file \
 		>> $seqres.full
-test_attr_replay node_file "attr_name2" $attr1k "s" "larp"
+test_attr_replay node_file "attr_name2" $attr256 "s" "larp"
 
 echo "*** done"
 status=0

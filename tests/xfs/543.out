@@ -4,146 +4,185 @@ QA output created by 543
 attr_set: Input/output error
 Could not set "attr_name" for SCRATCH_MNT/testdir/empty_file1
 touch: cannot touch 'SCRATCH_MNT/testdir/empty_file1': Input/output error
-21d850f99c43cc13abbe34838a8a3c8a  -
+Attribute "attr_name" has a 65 byte value for SCRATCH_MNT/testdir/empty_file1
+attr_name: cfbe2a33be4601d2b655d099a18378fc  -
 
 attr_remove: Input/output error
 Could not remove "attr_name" for SCRATCH_MNT/testdir/empty_file1
 touch: cannot touch 'SCRATCH_MNT/testdir/empty_file1': Input/output error
-attr_get: No data available
-Could not get "attr_name" for SCRATCH_MNT/testdir/empty_file1
+attr_name: attr_get: No data available
+Could not get "attr_name" for /mnt/scratch/testdir/empty_file1
 d41d8cd98f00b204e9800998ecf8427e  -
 
 attr_set: Input/output error
 Could not set "attr_name" for SCRATCH_MNT/testdir/empty_file2
 touch: cannot touch 'SCRATCH_MNT/testdir/empty_file2': Input/output error
-2ff89c2935debc431745ec791be5421a  -
+Attribute "attr_name" has a 1025 byte value for SCRATCH_MNT/testdir/empty_file2
+attr_name: 9fd415c49d67afc4b78fad4055a3a376  -
 
 attr_remove: Input/output error
 Could not remove "attr_name" for SCRATCH_MNT/testdir/empty_file2
 touch: cannot touch 'SCRATCH_MNT/testdir/empty_file2': Input/output error
-attr_get: No data available
-Could not get "attr_name" for SCRATCH_MNT/testdir/empty_file2
+attr_name: attr_get: No data available
+Could not get "attr_name" for /mnt/scratch/testdir/empty_file2
 d41d8cd98f00b204e9800998ecf8427e  -
 
 attr_set: Input/output error
 Could not set "attr_name" for SCRATCH_MNT/testdir/empty_file3
 touch: cannot touch 'SCRATCH_MNT/testdir/empty_file3': Input/output error
-5d24b314242c52176c98ac4bd685da8b  -
+Attribute "attr_name" has a 65536 byte value for SCRATCH_MNT/testdir/empty_file3
+attr_name: 7f6fd1b6d872108bd44bd143cbcdfa19  -
 
 attr_remove: Input/output error
 Could not remove "attr_name" for SCRATCH_MNT/testdir/empty_file3
 touch: cannot touch 'SCRATCH_MNT/testdir/empty_file3': Input/output error
-attr_get: No data available
-Could not get "attr_name" for SCRATCH_MNT/testdir/empty_file3
+attr_name: attr_get: No data available
+Could not get "attr_name" for /mnt/scratch/testdir/empty_file3
 d41d8cd98f00b204e9800998ecf8427e  -
 
 attr_set: Input/output error
 Could not set "attr_name2" for SCRATCH_MNT/testdir/inline_file1
 touch: cannot touch 'SCRATCH_MNT/testdir/inline_file1': Input/output error
-5a7b559a70d8e92b4f3c6f7158eead08  -
+Attribute "attr_name1" has a 16 byte value for SCRATCH_MNT/testdir/inline_file1
+Attribute "attr_name2" has a 65 byte value for SCRATCH_MNT/testdir/inline_file1
+attr_name2: cfbe2a33be4601d2b655d099a18378fc  -
 
 attr_remove: Input/output error
 Could not remove "attr_name2" for SCRATCH_MNT/testdir/inline_file1
 touch: cannot touch 'SCRATCH_MNT/testdir/inline_file1': Input/output error
-attr_get: No data available
-Could not get "attr_name2" for SCRATCH_MNT/testdir/inline_file1
+Attribute "attr_name1" has a 16 byte value for SCRATCH_MNT/testdir/inline_file1
+attr_name2: attr_get: No data available
+Could not get "attr_name2" for /mnt/scratch/testdir/inline_file1
 d41d8cd98f00b204e9800998ecf8427e  -
 
 attr_set: Input/output error
 Could not set "attr_name2" for SCRATCH_MNT/testdir/inline_file2
 touch: cannot touch 'SCRATCH_MNT/testdir/inline_file2': Input/output error
-5717d5e66c70be6bdb00ecbaca0b7749  -
+Attribute "attr_name2" has a 1025 byte value for SCRATCH_MNT/testdir/inline_file2
+Attribute "attr_name1" has a 16 byte value for SCRATCH_MNT/testdir/inline_file2
+attr_name2: 9fd415c49d67afc4b78fad4055a3a376  -
 
 attr_remove: Input/output error
 Could not remove "attr_name2" for SCRATCH_MNT/testdir/inline_file2
 touch: cannot touch 'SCRATCH_MNT/testdir/inline_file2': Input/output error
-attr_get: No data available
-Could not get "attr_name2" for SCRATCH_MNT/testdir/inline_file2
+Attribute "attr_name1" has a 16 byte value for SCRATCH_MNT/testdir/inline_file2
+attr_name2: attr_get: No data available
+Could not get "attr_name2" for /mnt/scratch/testdir/inline_file2
 d41d8cd98f00b204e9800998ecf8427e  -
 
 attr_set: Input/output error
 Could not set "attr_name2" for SCRATCH_MNT/testdir/inline_file3
 touch: cannot touch 'SCRATCH_MNT/testdir/inline_file3': Input/output error
-5c929964efd1b243aa8cceb6524f4810  -
+Attribute "attr_name2" has a 65536 byte value for SCRATCH_MNT/testdir/inline_file3
+Attribute "attr_name1" has a 16 byte value for SCRATCH_MNT/testdir/inline_file3
+attr_name2: 7f6fd1b6d872108bd44bd143cbcdfa19  -
 
 attr_remove: Input/output error
 Could not remove "attr_name2" for SCRATCH_MNT/testdir/inline_file3
 touch: cannot touch 'SCRATCH_MNT/testdir/inline_file3': Input/output error
-attr_get: No data available
-Could not get "attr_name2" for SCRATCH_MNT/testdir/inline_file3
+Attribute "attr_name1" has a 16 byte value for SCRATCH_MNT/testdir/inline_file3
+attr_name2: attr_get: No data available
+Could not get "attr_name2" for /mnt/scratch/testdir/inline_file3
 d41d8cd98f00b204e9800998ecf8427e  -
 
 attr_set: Input/output error
 Could not set "attr_name2" for SCRATCH_MNT/testdir/extent_file1
 touch: cannot touch 'SCRATCH_MNT/testdir/extent_file1': Input/output error
-51ccb5cdfc9082060f0f94a8a108fea0  -
+Attribute "attr_name2" has a 1025 byte value for SCRATCH_MNT/testdir/extent_file1
+Attribute "attr_name1" has a 1024 byte value for SCRATCH_MNT/testdir/extent_file1
+attr_name2: 9fd415c49d67afc4b78fad4055a3a376  -
 
 attr_remove: Input/output error
 Could not remove "attr_name2" for SCRATCH_MNT/testdir/extent_file1
 touch: cannot touch 'SCRATCH_MNT/testdir/extent_file1': Input/output error
-attr_get: No data available
-Could not get "attr_name2" for SCRATCH_MNT/testdir/extent_file1
+Attribute "attr_name1" has a 1024 byte value for SCRATCH_MNT/testdir/extent_file1
+attr_name2: attr_get: No data available
+Could not get "attr_name2" for /mnt/scratch/testdir/extent_file1
 d41d8cd98f00b204e9800998ecf8427e  -
 
 attr_set: Input/output error
 Could not set "attr_name4" for SCRATCH_MNT/testdir/extent_file2
 touch: cannot touch 'SCRATCH_MNT/testdir/extent_file2': Input/output error
-8d530bbe852d8bca83b131d5b3e497f5  -
+Attribute "attr_name4" has a 1025 byte value for SCRATCH_MNT/testdir/extent_file2
+Attribute "attr_name2" has a 1024 byte value for SCRATCH_MNT/testdir/extent_file2
+Attribute "attr_name3" has a 1024 byte value for SCRATCH_MNT/testdir/extent_file2
+Attribute "attr_name1" has a 1024 byte value for SCRATCH_MNT/testdir/extent_file2
+attr_name4: 9fd415c49d67afc4b78fad4055a3a376  -
 
 attr_set: Input/output error
 Could not set "attr_name4" for SCRATCH_MNT/testdir/extent_file3
 touch: cannot touch 'SCRATCH_MNT/testdir/extent_file3': Input/output error
-5d77c4d3831a35bcbbd6e7677119ce9a  -
+Attribute "attr_name4" has a 1025 byte value for SCRATCH_MNT/testdir/extent_file3
+Attribute "attr_name2" has a 1024 byte value for SCRATCH_MNT/testdir/extent_file3
+Attribute "attr_name3" has a 1024 byte value for SCRATCH_MNT/testdir/extent_file3
+Attribute "attr_name1" has a 1024 byte value for SCRATCH_MNT/testdir/extent_file3
+attr_name4: 9fd415c49d67afc4b78fad4055a3a376  -
 
 attr_set: Input/output error
 Could not set "attr_name2" for SCRATCH_MNT/testdir/extent_file4
 touch: cannot touch 'SCRATCH_MNT/testdir/extent_file4': Input/output error
-6707ec2431e4dbea20e17da0816520bb  -
+Attribute "attr_name2" has a 65536 byte value for SCRATCH_MNT/testdir/extent_file4
+Attribute "attr_name1" has a 1024 byte value for SCRATCH_MNT/testdir/extent_file4
+attr_name2: 7f6fd1b6d872108bd44bd143cbcdfa19  -
 
 attr_remove: Input/output error
 Could not remove "attr_name2" for SCRATCH_MNT/testdir/extent_file4
 touch: cannot touch 'SCRATCH_MNT/testdir/extent_file4': Input/output error
-attr_get: No data available
-Could not get "attr_name2" for SCRATCH_MNT/testdir/extent_file4
+Attribute "attr_name1" has a 1024 byte value for SCRATCH_MNT/testdir/extent_file4
+attr_name2: attr_get: No data available
+Could not get "attr_name2" for /mnt/scratch/testdir/extent_file4
 d41d8cd98f00b204e9800998ecf8427e  -
 
 attr_set: Input/output error
 Could not set "attr_name2" for SCRATCH_MNT/testdir/remote_file1
 touch: cannot touch 'SCRATCH_MNT/testdir/remote_file1': Input/output error
-767ebca3e4a6d24170857364f2bf2a3c  -
+Attribute "attr_name2" has a 1025 byte value for SCRATCH_MNT/testdir/remote_file1
+Attribute "attr_name1" has a 65536 byte value for SCRATCH_MNT/testdir/remote_file1
+attr_name2: 9fd415c49d67afc4b78fad4055a3a376  -
 
 attr_remove: Input/output error
 Could not remove "attr_name2" for SCRATCH_MNT/testdir/remote_file1
 touch: cannot touch 'SCRATCH_MNT/testdir/remote_file1': Input/output error
-attr_get: No data available
-Could not get "attr_name2" for SCRATCH_MNT/testdir/remote_file1
+Attribute "attr_name1" has a 65536 byte value for SCRATCH_MNT/testdir/remote_file1
+attr_name2: attr_get: No data available
+Could not get "attr_name2" for /mnt/scratch/testdir/remote_file1
 d41d8cd98f00b204e9800998ecf8427e  -
 
 attr_set: Input/output error
 Could not set "attr_name2" for SCRATCH_MNT/testdir/remote_file2
 touch: cannot touch 'SCRATCH_MNT/testdir/remote_file2': Input/output error
-fd84ddec89237e6d34a1703639efaebf  -
+Attribute "attr_name2" has a 65536 byte value for SCRATCH_MNT/testdir/remote_file2
+Attribute "attr_name1" has a 65536 byte value for SCRATCH_MNT/testdir/remote_file2
+attr_name2: 7f6fd1b6d872108bd44bd143cbcdfa19  -
 
 attr_remove: Input/output error
 Could not remove "attr_name2" for SCRATCH_MNT/testdir/remote_file2
 touch: cannot touch 'SCRATCH_MNT/testdir/remote_file2': Input/output error
-attr_get: No data available
-Could not get "attr_name2" for SCRATCH_MNT/testdir/remote_file2
+Attribute "attr_name1" has a 65536 byte value for SCRATCH_MNT/testdir/remote_file2
+attr_name2: attr_get: No data available
+Could not get "attr_name2" for /mnt/scratch/testdir/remote_file2
 d41d8cd98f00b204e9800998ecf8427e  -
 
 attr_set: Input/output error
 Could not set "attr_name2" for SCRATCH_MNT/testdir/sf_file
 touch: cannot touch 'SCRATCH_MNT/testdir/sf_file': Input/output error
-34aaa49662bafb46c76e377454685071  -
+Attribute "attr_name1" has a 64 byte value for SCRATCH_MNT/testdir/sf_file
+Attribute "attr_name2" has a 17 byte value for SCRATCH_MNT/testdir/sf_file
+attr_name2: 9a6eb1bc9da3c66a9b495dfe2fe8a756  -
 
 attr_set: Input/output error
 Could not set "attr_name2" for SCRATCH_MNT/testdir/leaf_file
 touch: cannot touch 'SCRATCH_MNT/testdir/leaf_file': Input/output error
-664e95ec28830ffb367c0950026e0d21  -
+Attribute "attr_name2" has a 257 byte value for SCRATCH_MNT/testdir/leaf_file
+Attribute "attr_name3" has a 1024 byte value for SCRATCH_MNT/testdir/leaf_file
+Attribute "attr_name1" has a 1024 byte value for SCRATCH_MNT/testdir/leaf_file
+attr_name2: f4ea5799d72a0a9bf2d56a685c9cba7a  -
 
 attr_set: Input/output error
 Could not set "attr_name2" for SCRATCH_MNT/testdir/node_file
 touch: cannot touch 'SCRATCH_MNT/testdir/node_file': Input/output error
-bb37a78ce26472eeb711e3559933db42  -
+Attribute "attr_name2" has a 257 byte value for SCRATCH_MNT/testdir/node_file
+Attribute "attr_name1" has a 65536 byte value for SCRATCH_MNT/testdir/node_file
+attr_name2: f4ea5799d72a0a9bf2d56a685c9cba7a  -
 
 *** done
