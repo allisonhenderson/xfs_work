@@ -541,7 +541,8 @@ xfs_attri_item_recover(
 	 */
 	attrp = &attrip->attri_format;
 	if (!xfs_attri_validate(mp, attrp) ||
-	    !xfs_attr_namecheck(attrip->attri_name, attrip->attri_name_len))
+	    !xfs_attr_namecheck(mp, attrip->attri_name, attrip->attri_name_len,
+	     attrp->alfi_attr_flags))
 		return -EFSCORRUPTED;
 
 	error = xlog_recover_iget(mp,  attrp->alfi_ino, &ip);
@@ -684,7 +685,8 @@ xlog_recover_attri_commit_pass2(
 	memcpy(attrip->attri_name, item->ri_buf[region].i_addr,
 	       attrip->attri_name_len);
 
-	if (!xfs_attr_namecheck(attrip->attri_name, attrip->attri_name_len)) {
+	if (!xfs_attr_namecheck(mp, attrip->attri_name, attrip->attri_name_len,
+	    attri_formatp->alfi_attr_flags)) {
 		XFS_ERROR_REPORT(__func__, XFS_ERRLEVEL_LOW, mp);
 		error = -EFSCORRUPTED;
 		goto out;
