@@ -556,6 +556,7 @@ int xfs_inode_hasattr(struct xfs_inode *ip);
 bool xfs_attr_is_leaf(struct xfs_inode *ip);
 int xfs_attr_get_ilocked(struct xfs_da_args *args);
 int xfs_attr_get(struct xfs_da_args *args);
+int xfs_attr_defer_add(struct xfs_da_args *args);
 int xfs_attr_set(struct xfs_da_args *args);
 int xfs_attr_set_iter(struct xfs_attr_item *attr);
 int xfs_attr_remove_iter(struct xfs_attr_item *attr);
@@ -599,8 +600,8 @@ xfs_attr_init_add_state(struct xfs_da_args *args)
 	 * XXX: The replace state changeover needs a bit of rework to
 	 * avoid this quirk.
 	 */
-	if (!args->dp->i_afp)
-		return XFS_DAS_DONE;
+	if (XFS_IFORK_Q((args->dp)) == 0)
+		return XFS_DAS_UNINIT;
 	if (xfs_attr_is_shortform(args->dp))
 		return XFS_DAS_SF_ADD;
 	if (xfs_attr_is_leaf(args->dp))
