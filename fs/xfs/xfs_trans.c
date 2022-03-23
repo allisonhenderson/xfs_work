@@ -1276,7 +1276,8 @@ xfs_trans_alloc_dir(
 	struct xfs_inode	*ip,
 	unsigned int		*dblocks,
 	struct xfs_trans	**tpp,
-	int			*nospace_error)
+	int			*nospace_error,
+	int			join_flags)
 {
 	struct xfs_trans	*tp;
 	struct xfs_mount	*mp = ip->i_mount;
@@ -1298,8 +1299,8 @@ retry:
 
 	xfs_lock_two_inodes(dp, XFS_ILOCK_EXCL, ip, XFS_ILOCK_EXCL);
 
-	xfs_trans_ijoin(tp, dp, XFS_ILOCK_EXCL);
-	xfs_trans_ijoin(tp, ip, XFS_ILOCK_EXCL);
+	xfs_trans_ijoin(tp, dp, join_flags);
+	xfs_trans_ijoin(tp, ip, join_flags);
 
 	error = xfs_qm_dqattach_locked(dp, false);
 	if (error) {
