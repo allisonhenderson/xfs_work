@@ -2832,16 +2832,27 @@ xfs_iunpin_wait(
  */
 int
 xfs_remove(
-	xfs_inode_t             *dp,
-	struct xfs_name		*name,
-	xfs_inode_t		*ip)
+	xfs_inode_t             	*dp,
+	struct xfs_name			*name,
+	xfs_inode_t			*ip)
 {
-	xfs_mount_t		*mp = dp->i_mount;
-	xfs_trans_t             *tp = NULL;
-	int			is_dir = S_ISDIR(VFS_I(ip)->i_mode);
-	int			dontcare;
-	int                     error = 0;
-	uint			resblks;
+	xfs_mount_t			*mp = dp->i_mount;
+	xfs_trans_t             	*tp = NULL;
+	int				is_dir = S_ISDIR(VFS_I(ip)->i_mode);
+	int				dontcare;
+	int                     	error = 0;
+	uint				resblks;
+	xfs_dir2_dataptr_t		dir_offset;
+	struct xfs_parent_name_rec	rec;
+	struct xfs_da_args		args = {
+		.dp		= ip,
+		.geo		= mp->m_attr_geo,
+		.whichfork	= XFS_ATTR_FORK,
+		.attr_filter	= XFS_ATTR_PARENT,
+		.op_flags	= XFS_DA_OP_OKNOENT,
+		.name		= (const uint8_t *)&rec,
+		.namelen	= sizeof(rec),
+	};
 
 	trace_xfs_remove(dp, name);
 
@@ -2856,6 +2867,12 @@ xfs_remove(
 	if (error)
 		goto std_return;
 
+	if (xfs_has_larp(mp)) {
+		error = xfs_attr_use_log_assist(mp);
+		if (error)
+			goto std_return;
+	}
+
 	/*
 	 * We try to get the real space reservation first, allowing for
 	 * directory btree deletion(s) implying possible bmap insert(s).  If we
@@ -2869,10 +2886,10 @@ xfs_remove(
 	 */
 	resblks = XFS_REMOVE_SPACE_RES(mp);
 	error = xfs_trans_alloc_dir(dp, &M_RES(mp)->tr_remove, ip, &resblks,
-			&tp, &dontcare, XFS_ILOCK_EXCL);
+			&tp, &dontcare, 0);
 	if (error) {
 		ASSERT(error != -ENOSPC);
-		goto std_return;
+		goto drop_incompat;
 	}
 
 	/*
@@ -2926,10 +2943,20 @@ xfs_remove(
 	if (error)
 		goto out_trans_cancel;
 
-	error = xfs_dir_removename(tp, dp, name, ip->i_ino, resblks, NULL);
+	error = xfs_dir_removename(tp, dp, name, ip->i_ino, resblks, &dir_offset);
 	if (error) {
 		ASSERT(error != -ENOENT);
 		goto out_trans_cancel;
+	}
+
+	if (xfs_sb_version_hasparent(&mp->m_sb)) {
+		xfs_init_parent_name_rec(&rec, dp, dir_offset);
+		args.hashval = xfs_da_hashname(args.name, args.namelen);
+		args.trans = tp;
+
+		error = xfs_attr_remove_deferred(&args);
+		if (error)
+			goto out_trans_cancel;
 	}
 
 	/*
@@ -2942,15 +2969,23 @@ xfs_remove(
 
 	error = xfs_trans_commit(tp);
 	if (error)
-		goto std_return;
+		goto out_unlock;
 
 	if (is_dir && xfs_inode_is_filestream(ip))
 		xfs_filestream_deassociate(ip);
 
+	xfs_iunlock(ip, XFS_ILOCK_EXCL);
+	xfs_iunlock(dp, XFS_ILOCK_EXCL);
 	return 0;
 
  out_trans_cancel:
 	xfs_trans_cancel(tp);
+ out_unlock:
+	xfs_iunlock(ip, XFS_ILOCK_EXCL);
+	xfs_iunlock(dp, XFS_ILOCK_EXCL);
+ drop_incompat:
+	if (xfs_has_larp(mp))
+		xlog_drop_incompat_feat(mp->m_log);
  std_return:
 	return error;
 }
