@@ -58,10 +58,12 @@ xfs_efi_release(
 	struct xfs_efi_log_item	*efip)
 {
 	ASSERT(atomic_read(&efip->efi_refcount) > 0);
-	if (atomic_dec_and_test(&efip->efi_refcount)) {
+	if (!atomic_dec_and_test(&efip->efi_refcount))
+		return;
+
+	if (test_bit(XFS_LI_IN_AIL, &efip->efi_item.li_flags))
 		xfs_trans_ail_delete(&efip->efi_item, SHUTDOWN_LOG_IO_ERROR);
-		xfs_efi_item_free(efip);
-	}
+	xfs_efi_item_free(efip);
 }
 
 /*

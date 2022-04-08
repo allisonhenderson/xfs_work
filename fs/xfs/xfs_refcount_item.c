@@ -53,10 +53,12 @@ xfs_cui_release(
 	struct xfs_cui_log_item	*cuip)
 {
 	ASSERT(atomic_read(&cuip->cui_refcount) > 0);
-	if (atomic_dec_and_test(&cuip->cui_refcount)) {
+	if (!atomic_dec_and_test(&cuip->cui_refcount))
+		return;
+
+	if (test_bit(XFS_LI_IN_AIL, &cuip->cui_item.li_flags))
 		xfs_trans_ail_delete(&cuip->cui_item, SHUTDOWN_LOG_IO_ERROR);
-		xfs_cui_item_free(cuip);
-	}
+	xfs_cui_item_free(cuip);
 }
 
 
