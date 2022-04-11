@@ -53,10 +53,12 @@ xfs_rui_release(
 	struct xfs_rui_log_item	*ruip)
 {
 	ASSERT(atomic_read(&ruip->rui_refcount) > 0);
-	if (atomic_dec_and_test(&ruip->rui_refcount)) {
+	if (!atomic_dec_and_test(&ruip->rui_refcount))
+		return;
+
+	if (test_bit(XFS_LI_IN_AIL, &ruip->rui_item.li_flags))
 		xfs_trans_ail_delete(&ruip->rui_item, SHUTDOWN_LOG_IO_ERROR);
-		xfs_rui_item_free(ruip);
-	}
+	xfs_rui_item_free(ruip);
 }
 
 STATIC void

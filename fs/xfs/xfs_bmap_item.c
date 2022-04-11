@@ -54,10 +54,12 @@ xfs_bui_release(
 	struct xfs_bui_log_item	*buip)
 {
 	ASSERT(atomic_read(&buip->bui_refcount) > 0);
-	if (atomic_dec_and_test(&buip->bui_refcount)) {
+	if (!atomic_dec_and_test(&buip->bui_refcount))
+		return;
+
+	if (test_bit(XFS_LI_IN_AIL, &buip->bui_item.li_flags))
 		xfs_trans_ail_delete(&buip->bui_item, SHUTDOWN_LOG_IO_ERROR);
-		xfs_bui_item_free(buip);
-	}
+	xfs_bui_item_free(buip);
 }
 
 
