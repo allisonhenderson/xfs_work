@@ -35,6 +35,7 @@ STATIC void
 xfs_rui_item_free(
 	struct xfs_rui_log_item	*ruip)
 {
+	kmem_free(ruip->rui_item.li_lv_shadow);
 	if (ruip->rui_format.rui_nextents > XFS_RUI_MAX_FAST_EXTENTS)
 		kmem_free(ruip);
 	else
@@ -53,10 +54,12 @@ xfs_rui_release(
 	struct xfs_rui_log_item	*ruip)
 {
 	ASSERT(atomic_read(&ruip->rui_refcount) > 0);
-	if (atomic_dec_and_test(&ruip->rui_refcount)) {
+	if (!atomic_dec_and_test(&ruip->rui_refcount))
+		return;
+
+	if (test_bit(XFS_LI_IN_AIL, &ruip->rui_item.li_flags))
 		xfs_trans_ail_delete(&ruip->rui_item, SHUTDOWN_LOG_IO_ERROR);
-		xfs_rui_item_free(ruip);
-	}
+	xfs_rui_item_free(ruip);
 }
 
 STATIC void
@@ -226,15 +229,25 @@ xfs_rud_item_release(
 {
 	struct xfs_rud_log_item	*rudp = RUD_ITEM(lip);
 
+	kmem_free(rudp->rud_item.li_lv_shadow);
 	xfs_rui_release(rudp->rud_ruip);
 	kmem_cache_free(xfs_rud_cache, rudp);
 }
 
+static struct xfs_log_item *
+xfs_rud_item_intent(
+	struct xfs_log_item	*lip)
+{
+	return &RUD_ITEM(lip)->rud_ruip->rui_item;
+}
+
 static const struct xfs_item_ops xfs_rud_item_ops = {
-	.flags		= XFS_ITEM_RELEASE_WHEN_COMMITTED,
+	.flags		= XFS_ITEM_RELEASE_WHEN_COMMITTED |
+			  XFS_ITEM_INTENT_DONE,
 	.iop_size	= xfs_rud_item_size,
 	.iop_format	= xfs_rud_item_format,
 	.iop_release	= xfs_rud_item_release,
+	.iop_intent	= xfs_rud_item_intent,
 };
 
 static struct xfs_rud_log_item *
@@ -327,7 +340,7 @@ xfs_trans_log_finish_rmap_update(
 	 * 1.) releases the RUI and frees the RUD
 	 * 2.) shuts down the filesystem
 	 */
-	tp->t_flags |= XFS_TRANS_DIRTY;
+	tp->t_flags |= XFS_TRANS_DIRTY | XFS_TRANS_HAS_INTENT_DONE;
 	set_bit(XFS_LI_DIRTY, &rudp->rud_item.li_flags);
 
 	return error;
@@ -630,6 +643,7 @@ xfs_rui_item_relog(
 }
 
 static const struct xfs_item_ops xfs_rui_item_ops = {
+	.flags		= XFS_ITEM_INTENT,
 	.iop_size	= xfs_rui_item_size,
 	.iop_format	= xfs_rui_item_format,
 	.iop_unpin	= xfs_rui_item_unpin,

@@ -35,6 +35,7 @@ STATIC void
 xfs_cui_item_free(
 	struct xfs_cui_log_item	*cuip)
 {
+	kmem_free(cuip->cui_item.li_lv_shadow);
 	if (cuip->cui_format.cui_nextents > XFS_CUI_MAX_FAST_EXTENTS)
 		kmem_free(cuip);
 	else
@@ -53,10 +54,12 @@ xfs_cui_release(
 	struct xfs_cui_log_item	*cuip)
 {
 	ASSERT(atomic_read(&cuip->cui_refcount) > 0);
-	if (atomic_dec_and_test(&cuip->cui_refcount)) {
+	if (!atomic_dec_and_test(&cuip->cui_refcount))
+		return;
+
+	if (test_bit(XFS_LI_IN_AIL, &cuip->cui_item.li_flags))
 		xfs_trans_ail_delete(&cuip->cui_item, SHUTDOWN_LOG_IO_ERROR);
-		xfs_cui_item_free(cuip);
-	}
+	xfs_cui_item_free(cuip);
 }
 
 
@@ -207,11 +210,20 @@ xfs_cud_item_release(
 	kmem_cache_free(xfs_cud_cache, cudp);
 }
 
+static struct xfs_log_item *
+xfs_cud_item_intent(
+	struct xfs_log_item	*lip)
+{
+	return &CUD_ITEM(lip)->cud_cuip->cui_item;
+}
+
 static const struct xfs_item_ops xfs_cud_item_ops = {
-	.flags		= XFS_ITEM_RELEASE_WHEN_COMMITTED,
+	.flags		= XFS_ITEM_RELEASE_WHEN_COMMITTED |
+			  XFS_ITEM_INTENT_DONE,
 	.iop_size	= xfs_cud_item_size,
 	.iop_format	= xfs_cud_item_format,
 	.iop_release	= xfs_cud_item_release,
+	.iop_intent	= xfs_cud_item_intent,
 };
 
 static struct xfs_cud_log_item *
@@ -259,7 +271,7 @@ xfs_trans_log_finish_refcount_update(
 	 * 1.) releases the CUI and frees the CUD
 	 * 2.) shuts down the filesystem
 	 */
-	tp->t_flags |= XFS_TRANS_DIRTY;
+	tp->t_flags |= XFS_TRANS_DIRTY | XFS_TRANS_HAS_INTENT_DONE;
 	set_bit(XFS_LI_DIRTY, &cudp->cud_item.li_flags);
 
 	return error;
@@ -600,6 +612,7 @@ xfs_cui_item_relog(
 }
 
 static const struct xfs_item_ops xfs_cui_item_ops = {
+	.flags		= XFS_ITEM_INTENT,
 	.iop_size	= xfs_cui_item_size,
 	.iop_format	= xfs_cui_item_format,
 	.iop_unpin	= xfs_cui_item_unpin,

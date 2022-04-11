@@ -39,6 +39,7 @@ STATIC void
 xfs_bui_item_free(
 	struct xfs_bui_log_item	*buip)
 {
+	kmem_free(buip->bui_item.li_lv_shadow);
 	kmem_cache_free(xfs_bui_cache, buip);
 }
 
@@ -54,10 +55,12 @@ xfs_bui_release(
 	struct xfs_bui_log_item	*buip)
 {
 	ASSERT(atomic_read(&buip->bui_refcount) > 0);
-	if (atomic_dec_and_test(&buip->bui_refcount)) {
+	if (!atomic_dec_and_test(&buip->bui_refcount))
+		return;
+
+	if (test_bit(XFS_LI_IN_AIL, &buip->bui_item.li_flags))
 		xfs_trans_ail_delete(&buip->bui_item, SHUTDOWN_LOG_IO_ERROR);
-		xfs_bui_item_free(buip);
-	}
+	xfs_bui_item_free(buip);
 }
 
 
@@ -197,15 +200,25 @@ xfs_bud_item_release(
 {
 	struct xfs_bud_log_item	*budp = BUD_ITEM(lip);
 
+	kmem_free(budp->bud_item.li_lv_shadow);
 	xfs_bui_release(budp->bud_buip);
 	kmem_cache_free(xfs_bud_cache, budp);
 }
 
+static struct xfs_log_item *
+xfs_bud_item_intent(
+	struct xfs_log_item	*lip)
+{
+	return &BUD_ITEM(lip)->bud_buip->bui_item;
+}
+
 static const struct xfs_item_ops xfs_bud_item_ops = {
-	.flags		= XFS_ITEM_RELEASE_WHEN_COMMITTED,
+	.flags		= XFS_ITEM_RELEASE_WHEN_COMMITTED |
+			  XFS_ITEM_INTENT_DONE,
 	.iop_size	= xfs_bud_item_size,
 	.iop_format	= xfs_bud_item_format,
 	.iop_release	= xfs_bud_item_release,
+	.iop_intent	= xfs_bud_item_intent,
 };
 
 static struct xfs_bud_log_item *
@@ -254,7 +267,7 @@ xfs_trans_log_finish_bmap_update(
 	 * 1.) releases the BUI and frees the BUD
 	 * 2.) shuts down the filesystem
 	 */
-	tp->t_flags |= XFS_TRANS_DIRTY;
+	tp->t_flags |= XFS_TRANS_DIRTY | XFS_TRANS_HAS_INTENT_DONE;
 	set_bit(XFS_LI_DIRTY, &budp->bud_item.li_flags);
 
 	return error;
@@ -584,6 +597,7 @@ xfs_bui_item_relog(
 }
 
 static const struct xfs_item_ops xfs_bui_item_ops = {
+	.flags		= XFS_ITEM_INTENT,
 	.iop_size	= xfs_bui_item_size,
 	.iop_format	= xfs_bui_item_format,
 	.iop_unpin	= xfs_bui_item_unpin,
