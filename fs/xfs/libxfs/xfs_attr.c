@@ -507,13 +507,11 @@ int xfs_attr_node_removename_setup(
 	ASSERT((*state)->path.blk[(*state)->path.active - 1].magic ==
 		XFS_ATTR_LEAF_MAGIC);
 
-	if (args->rmtblkno > 0) {
-		error = xfs_attr_leaf_mark_incomplete(args, *state);
-		if (error)
-			goto out;
-
+	error = xfs_attr_leaf_mark_incomplete(args, *state);
+	if (error)
+		goto out;
+	if (args->rmtblkno > 0)
 		error = xfs_attr_rmtval_invalidate(args);
-	}
 out:
 	if (error)
 		xfs_da_state_free(*state);
@@ -954,6 +952,13 @@ xfs_attr_remove_deferred(
 	if (error)
 		return error;
 
+	if (xfs_attr_is_shortform(args->dp))
+		new->xattri_dela_state = XFS_DAS_SF_REMOVE;
+	else if (xfs_attr_is_leaf(args->dp))
+		new->xattri_dela_state = XFS_DAS_LEAF_REMOVE;
+	else
+		new->xattri_dela_state = XFS_DAS_NODE_REMOVE;
+
 	xfs_defer_add(args->trans, XFS_DEFER_OPS_TYPE_ATTR, &new->xattri_list);
 
 	return 0;
@@ -1342,16 +1347,15 @@ xfs_attr_node_remove_attr(
 {
 	struct xfs_da_args		*args = attr->xattri_da_args;
 	struct xfs_da_state		*state = NULL;
-	struct xfs_mount		*mp = args->dp->i_mount;
 	int				retval = 0;
 	int				error = 0;
 
 	/*
-	 * Re-find the "old" attribute entry after any split ops. The INCOMPLETE
-	 * flag means that we will find the "old" attr, not the "new" one.
+	 * The attr we are removing has already been marked incomplete, so
+	 * we need to set the filter appropriately to re-find the "old"
+	 * attribute entry after any split ops.
 	 */
-	if (!xfs_has_larp(mp))
-		args->attr_filter |= XFS_ATTR_INCOMPLETE;
+	args->attr_filter |= XFS_ATTR_INCOMPLETE;
 	state = xfs_da_state_alloc(args);
 	state->inleaf = 0;
 	error = xfs_da3_node_lookup_int(state, &retval);
