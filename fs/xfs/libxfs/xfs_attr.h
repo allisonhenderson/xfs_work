@@ -443,20 +443,43 @@ struct xfs_attr_list_context {
  * to where it was and resume executing where it left off.
  */
 enum xfs_delattr_state {
-	XFS_DAS_UNINIT		= 0,  /* No state has been set yet */
-	XFS_DAS_RMTBLK,		      /* Removing remote blks */
-	XFS_DAS_RM_NAME,	      /* Remove attr name */
-	XFS_DAS_RM_SHRINK,	      /* We are shrinking the tree */
-	XFS_DAS_FOUND_LBLK,	      /* We found leaf blk for attr */
-	XFS_DAS_FOUND_NBLK,	      /* We found node blk for attr */
-	XFS_DAS_FLIP_LFLAG,	      /* Flipped leaf INCOMPLETE attr flag */
-	XFS_DAS_RM_LBLK,	      /* A rename is removing leaf blocks */
-	XFS_DAS_RD_LEAF,	      /* Read in the new leaf */
-	XFS_DAS_ALLOC_NODE,	      /* We are allocating node blocks */
-	XFS_DAS_FLIP_NFLAG,	      /* Flipped node INCOMPLETE attr flag */
-	XFS_DAS_RM_NBLK,	      /* A rename is removing node blocks */
-	XFS_DAS_CLR_FLAG,	      /* Clear incomplete flag */
+	XFS_DAS_UNINIT		= 0,	/* No state has been set yet */
+	XFS_DAS_SF_ADD,			/* Initial shortform set iter state */
+	XFS_DAS_LEAF_ADD,		/* Initial leaf form set iter state */
+	XFS_DAS_NODE_ADD,		/* Initial node form set iter state */
+	XFS_DAS_RMTBLK,			/* Removing remote blks */
+	XFS_DAS_RM_NAME,		/* Remove attr name */
+	XFS_DAS_RM_SHRINK,		/* We are shrinking the tree */
+	XFS_DAS_FOUND_LBLK,		/* We found leaf blk for attr */
+	XFS_DAS_FOUND_NBLK,		/* We found node blk for attr */
+	XFS_DAS_FLIP_LFLAG,		/* Flipped leaf INCOMPLETE attr flag */
+	XFS_DAS_RM_LBLK,		/* A rename is removing leaf blocks */
+	XFS_DAS_RD_LEAF,		/* Read in the new leaf */
+	XFS_DAS_ALLOC_NODE,		/* We are allocating node blocks */
+	XFS_DAS_FLIP_NFLAG,		/* Flipped node INCOMPLETE attr flag */
+	XFS_DAS_RM_NBLK,		/* A rename is removing node blocks */
+	XFS_DAS_CLR_FLAG,		/* Clear incomplete flag */
+	XFS_DAS_DONE,			/* finished operation */
 };
+
+#define XFS_DAS_STRINGS	\
+	{ XFS_DAS_UNINIT,	"XFS_DAS_UNINIT" }, \
+	{ XFS_DAS_SF_ADD,	"XFS_DAS_SF_ADD" }, \
+	{ XFS_DAS_LEAF_ADD,	"XFS_DAS_LEAF_ADD" }, \
+	{ XFS_DAS_NODE_ADD,	"XFS_DAS_NODE_ADD" }, \
+	{ XFS_DAS_RMTBLK,	"XFS_DAS_RMTBLK" }, \
+	{ XFS_DAS_RM_NAME,	"XFS_DAS_RM_NAME" }, \
+	{ XFS_DAS_RM_SHRINK,	"XFS_DAS_RM_SHRINK" }, \
+	{ XFS_DAS_FOUND_LBLK,	"XFS_DAS_FOUND_LBLK" }, \
+	{ XFS_DAS_FOUND_NBLK,	"XFS_DAS_FOUND_NBLK" }, \
+	{ XFS_DAS_FLIP_LFLAG,	"XFS_DAS_FLIP_LFLAG" }, \
+	{ XFS_DAS_RM_LBLK,	"XFS_DAS_RM_LBLK" }, \
+	{ XFS_DAS_RD_LEAF,	"XFS_DAS_RD_LEAF" }, \
+	{ XFS_DAS_ALLOC_NODE,	"XFS_DAS_ALLOC_NODE" }, \
+	{ XFS_DAS_FLIP_NFLAG,	"XFS_DAS_FLIP_NFLAG" }, \
+	{ XFS_DAS_RM_NBLK,	"XFS_DAS_RM_NBLK" }, \
+	{ XFS_DAS_CLR_FLAG,	"XFS_DAS_CLR_FLAG" }, \
+	{ XFS_DAS_DONE,		"XFS_DAS_DONE" }
 
 /*
  * Defines for xfs_attr_item.xattri_flags
