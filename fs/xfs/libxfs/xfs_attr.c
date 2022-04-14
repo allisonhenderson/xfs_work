@@ -260,19 +260,6 @@ xfs_attr_try_sf_addname(
 	return error;
 }
 
-/*
- * Check to see if the attr should be upgraded from non-existent or shortform to
- * single-leaf-block attribute list.
- */
-static inline bool
-xfs_attr_is_shortform(
-	struct xfs_inode    *ip)
-{
-	return ip->i_afp->if_format == XFS_DINODE_FMT_LOCAL ||
-	       (ip->i_afp->if_format == XFS_DINODE_FMT_EXTENTS &&
-		ip->i_afp->if_nextents == 0);
-}
-
 static int
 xfs_attr_sf_addname(
 	struct xfs_attr_item		*attr)
@@ -309,20 +296,29 @@ out:
 }
 
 /*
- * When we bump the state to REPLACE, we may actually need to skip over the
- * state. When LARP mode is enabled, we don't need to run the atomic flags flip,
- * so we skip straight over the REPLACE state and go on to REMOVE_OLD.
+ * Handle the state change on completion of a multi-state attr operation.
+ *
+ * If the XFS_DA_OP_RENAME flag is set, this means the operation was the first
+ * modification in a attr replace operation and we still have to do the second
+ * state, indicated by @replace_state.
+ *
+ * We consume the XFS_DA_OP_RENAME flag so that when we are called again on
+ * completion of the second half of the attr replace operation we correctly
+ * signal that it is done.
  */
-static void
-xfs_attr_dela_state_set_replace(
+static enum xfs_delattr_state
+xfs_attr_complete_op(
 	struct xfs_attr_item	*attr,
-	enum xfs_delattr_state	replace)
+	enum xfs_delattr_state	replace_state)
 {
 	struct xfs_da_args	*args = attr->xattri_da_args;
+	bool			do_replace = args->op_flags & XFS_DA_OP_RENAME;
 
-	attr->xattri_dela_state = replace;
-	if (xfs_has_larp(args->dp->i_mount))
-		attr->xattri_dela_state++;
+	args->attr_flags &= ~XATTR_REPLACE;
+	args->op_flags &= ~XFS_DA_OP_RENAME;
+	if (do_replace)
+		return replace_state;
+	return XFS_DAS_DONE;
 }
 
 static int
@@ -364,10 +360,9 @@ xfs_attr_leaf_addname(
 	 */
 	if (args->rmtblkno)
 		attr->xattri_dela_state = XFS_DAS_LEAF_SET_RMT;
-	else if (args->op_flags & XFS_DA_OP_RENAME)
-		xfs_attr_dela_state_set_replace(attr, XFS_DAS_LEAF_REPLACE);
 	else
-		attr->xattri_dela_state = XFS_DAS_DONE;
+		attr->xattri_dela_state = xfs_attr_complete_op(attr,
+							XFS_DAS_LEAF_REPLACE);
 out:
 	trace_xfs_attr_leaf_addname_return(attr->xattri_dela_state, args->dp);
 	return error;
@@ -409,10 +404,9 @@ xfs_attr_node_addname(
 
 	if (args->rmtblkno)
 		attr->xattri_dela_state = XFS_DAS_NODE_SET_RMT;
-	else if (args->op_flags & XFS_DA_OP_RENAME)
-		xfs_attr_dela_state_set_replace(attr, XFS_DAS_NODE_REPLACE);
 	else
-		attr->xattri_dela_state = XFS_DAS_DONE;
+		attr->xattri_dela_state = xfs_attr_complete_op(attr,
+							XFS_DAS_NODE_REPLACE);
 out:
 	trace_xfs_attr_node_addname_return(attr->xattri_dela_state, args->dp);
 	return error;
@@ -442,18 +436,15 @@ xfs_attr_rmtval_alloc(
 	if (error)
 		return error;
 
-	/* If this is not a rename, clear the incomplete flag and we're done. */
-	if (!(args->op_flags & XFS_DA_OP_RENAME)) {
+	attr->xattri_dela_state = xfs_attr_complete_op(attr,
+						++attr->xattri_dela_state);
+	/*
+	 * If we are not doing a rename, we've finished the operation but still
+	 * have to clear the incomplete flag protecting the new attr from
+	 * exposing partially initialised state if we crash during creation.
+	 */
+	if (attr->xattri_dela_state == XFS_DAS_DONE)
 		error = xfs_attr3_leaf_clearflag(args);
-		attr->xattri_dela_state = XFS_DAS_DONE;
-	} else {
-		/*
-		 * We are running a REPLACE operation, so we need to bump the
-		 * state to the step in that operation.
-		 */
-		attr->xattri_dela_state++;
-		xfs_attr_dela_state_set_replace(attr, attr->xattri_dela_state);
-	}
 out:
 	trace_xfs_attr_rmtval_alloc(attr->xattri_dela_state, args->dp);
 	return error;
@@ -578,11 +569,15 @@ next_state:
 		return xfs_attr_node_addname(attr);
 
 	case XFS_DAS_SF_REMOVE:
-		attr->xattri_dela_state = XFS_DAS_DONE;
-		return xfs_attr_sf_removename(args);
+		error = xfs_attr_sf_removename(args);
+		attr->xattri_dela_state = xfs_attr_complete_op(attr,
+						xfs_attr_init_add_state(args));
+		break;
 	case XFS_DAS_LEAF_REMOVE:
-		attr->xattri_dela_state = XFS_DAS_DONE;
-		return xfs_attr_leaf_removename(args);
+		error = xfs_attr_leaf_removename(args);
+		attr->xattri_dela_state = xfs_attr_complete_op(attr,
+						xfs_attr_init_add_state(args));
+		break;
 	case XFS_DAS_NODE_REMOVE:
 		error = xfs_attr_node_removename_setup(attr);
 		if (error)
@@ -678,12 +673,14 @@ next_state:
 
 	case XFS_DAS_LEAF_REMOVE_ATTR:
 		error = xfs_attr_leaf_remove_attr(attr);
-		attr->xattri_dela_state = XFS_DAS_DONE;
+		attr->xattri_dela_state = xfs_attr_complete_op(attr,
+						xfs_attr_init_add_state(args));
 		break;
 
 	case XFS_DAS_NODE_REMOVE_ATTR:
 		error = xfs_attr_node_remove_attr(attr);
-		attr->xattri_dela_state = XFS_DAS_DONE;
+		attr->xattri_dela_state = xfs_attr_complete_op(attr,
+						xfs_attr_init_add_state(args));
 		break;
 	default:
 		ASSERT(0);
@@ -753,14 +750,9 @@ xfs_attr_defer_add(
 	if (error)
 		return error;
 
-	if (xfs_attr_is_shortform(args->dp))
-		new->xattri_dela_state = XFS_DAS_SF_ADD;
-	else if (xfs_attr_is_leaf(args->dp))
-		new->xattri_dela_state = XFS_DAS_LEAF_ADD;
-	else
-		new->xattri_dela_state = XFS_DAS_NODE_ADD;
-
+	new->xattri_dela_state = xfs_attr_init_add_state(args);
 	xfs_defer_add(args->trans, XFS_DEFER_OPS_TYPE_ATTR, &new->xattri_list);
+	trace_xfs_attr_defer_add(new->xattri_dela_state, args->dp);
 
 	return 0;
 }
@@ -773,18 +765,13 @@ xfs_attr_defer_replace(
 	struct xfs_attr_item	*new;
 	int			error = 0;
 
-	error = xfs_attr_item_init(args, XFS_ATTR_OP_FLAGS_SET, &new);
+	error = xfs_attr_item_init(args, XFS_ATTR_OP_FLAGS_REPLACE, &new);
 	if (error)
 		return error;
 
-	if (xfs_attr_is_shortform(args->dp))
-		new->xattri_dela_state = XFS_DAS_SF_ADD;
-	else if (xfs_attr_is_leaf(args->dp))
-		new->xattri_dela_state = XFS_DAS_LEAF_ADD;
-	else
-		new->xattri_dela_state = XFS_DAS_NODE_ADD;
-
+	new->xattri_dela_state = xfs_attr_init_replace_state(args);
 	xfs_defer_add(args->trans, XFS_DEFER_OPS_TYPE_ATTR, &new->xattri_list);
+	trace_xfs_attr_defer_replace(new->xattri_dela_state, args->dp);
 
 	return 0;
 }
@@ -802,14 +789,9 @@ xfs_attr_defer_remove(
 	if (error)
 		return error;
 
-	if (xfs_attr_is_shortform(args->dp))
-		new->xattri_dela_state = XFS_DAS_SF_REMOVE;
-	else if (xfs_attr_is_leaf(args->dp))
-		new->xattri_dela_state = XFS_DAS_LEAF_REMOVE;
-	else
-		new->xattri_dela_state = XFS_DAS_NODE_REMOVE;
-
+	new->xattri_dela_state = xfs_attr_init_remove_state(args);
 	xfs_defer_add(args->trans, XFS_DEFER_OPS_TYPE_ATTR, &new->xattri_list);
+	trace_xfs_attr_defer_remove(new->xattri_dela_state, args->dp);
 
 	return 0;
 }
@@ -1032,6 +1014,7 @@ xfs_attr_shortform_addname(xfs_da_args_t *args)
 		 * not being around.
 		 */
 		args->attr_flags &= ~XATTR_REPLACE;
+		args->op_flags &= ~XFS_DA_OP_RENAME;
 	}
 
 	if (args->namelen >= XFS_ATTR_SF_ENTSIZE_MAX ||
@@ -1122,16 +1105,14 @@ xfs_attr_leaf_try_add(
 			goto out_brelse;
 
 		trace_xfs_attr_leaf_replace(args);
-
-		/* save the attribute state for later removal*/
-		args->op_flags |= XFS_DA_OP_RENAME;	/* an atomic rename */
-		xfs_attr_save_rmt_blk(args);
+		ASSERT(args->op_flags & XFS_DA_OP_RENAME);
 
 		/*
-		 * clear the remote attr state now that it is saved so that the
-		 * values reflect the state of the attribute we are about to
+		 * Save the existing remote attr state so that the current
+		 * values reflect the state of the new attribute we are about to
 		 * add, not the attribute we just found and will remove later.
 		 */
+		xfs_attr_save_rmt_blk(args);
 		args->rmtblkno = 0;
 		args->rmtblkcnt = 0;
 		args->rmtvaluelen = 0;
@@ -1293,16 +1274,14 @@ xfs_attr_node_addname_find_attr(
 			goto error;
 
 		trace_xfs_attr_node_replace(args);
-
-		/* save the attribute state for later removal*/
-		args->op_flags |= XFS_DA_OP_RENAME;	/* atomic rename op */
-		xfs_attr_save_rmt_blk(args);
+		ASSERT(args->op_flags & XFS_DA_OP_RENAME);
 
 		/*
-		 * clear the remote attr state now that it is saved so that the
-		 * values reflect the state of the attribute we are about to
+		 * Save the existing remote attr state so that the current
+		 * values reflect the state of the new attribute we are about to
 		 * add, not the attribute we just found and will remove later.
 		 */
+		xfs_attr_save_rmt_blk(args);
 		args->rmtblkno = 0;
 		args->rmtblkcnt = 0;
 		args->rmtvaluelen = 0;

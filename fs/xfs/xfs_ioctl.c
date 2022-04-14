@@ -15,7 +15,6 @@
 #include "xfs_iwalk.h"
 #include "xfs_itable.h"
 #include "xfs_error.h"
-#include "xfs_attr.h"
 #include "xfs_bmap.h"
 #include "xfs_bmap_util.h"
 #include "xfs_fsops.h"
@@ -37,6 +36,7 @@
 #include "xfs_ioctl.h"
 #include "xfs_da_format.h"
 #include "xfs_da_btree.h"
+#include "xfs_attr.h"
 
 #include <linux/mount.h>
 #include <linux/namei.h>

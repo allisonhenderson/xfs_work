@@ -446,6 +446,14 @@ xfs_attr3_leaf_read(
  * Namespace helper routines
  *========================================================================*/
 
+/*
+ * If we are in log recovery, then we want the lookup to ignore the INCOMPLETE
+ * flag on disk - if there's an incomplete attr then recovery needs to tear it
+ * down. If there's no incomplete attr, then recovery needs to tear that attr
+ * down to replace it with the attr that has been logged. In this case, the
+ * INCOMPLETE flag will not be set in attr->attr_filter, but rather
+ * XFS_DA_OP_RECOVERY will be set in args->op_flags.
+ */
 static bool
 xfs_attr_match(
 	struct xfs_da_args	*args,
@@ -453,14 +461,18 @@ xfs_attr_match(
 	unsigned char		*name,
 	int			flags)
 {
+
 	if (args->namelen != namelen)
 		return false;
 	if (memcmp(args->name, name, namelen) != 0)
 		return false;
-	/*
-	 * If we are looking for incomplete entries, show only those, else only
-	 * show complete entries.
-	 */
+
+	/* Recovery ignores the INCOMPLETE flag. */
+	if ((args->op_flags & XFS_DA_OP_RECOVERY) &&
+	    args->attr_filter == (flags & XFS_ATTR_NSP_ONDISK_MASK))
+		return true;
+
+	/* All remaining matches need to be filtered by INCOMPLETE state. */
 	if (args->attr_filter !=
 	    (flags & (XFS_ATTR_NSP_ONDISK_MASK | XFS_ATTR_INCOMPLETE)))
 		return false;
@@ -819,7 +831,7 @@ xfs_attr_sf_removename(
 	totsize -= size;
 	if (totsize == sizeof(xfs_attr_sf_hdr_t) && xfs_has_attr2(mp) &&
 	    (dp->i_df.if_format != XFS_DINODE_FMT_BTREE) &&
-	    !(args->op_flags & XFS_DA_OP_ADDNAME)) {
+	    !(args->op_flags & (XFS_DA_OP_ADDNAME | XFS_DA_OP_RENAME))) {
 		xfs_attr_fork_remove(dp, args->trans);
 	} else {
 		xfs_idata_realloc(dp, -size, XFS_ATTR_FORK);

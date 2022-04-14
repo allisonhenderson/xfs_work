@@ -906,9 +906,10 @@ struct xfs_icreate_log {
  * Flags for deferred attribute operations.
  * Upper bits are flags, lower byte is type code
  */
-#define XFS_ATTR_OP_FLAGS_SET		1	/* Set the attribute */
-#define XFS_ATTR_OP_FLAGS_REMOVE	2	/* Remove the attribute */
-#define XFS_ATTR_OP_FLAGS_TYPE_MASK	0xFF	/* Flags type mask */
+#define XFS_ATTR_OP_FLAGS_SET		(1u << 0) /* Set the attribute */
+#define XFS_ATTR_OP_FLAGS_REMOVE	(1u << 1) /* Remove the attribute */
+#define XFS_ATTR_OP_FLAGS_REPLACE	(1u << 2) /* Replace the attribute */
+#define XFS_ATTR_OP_FLAGS_TYPE_MASK	0xFF	  /* Flags type mask */
 
 /*
  * This is the structure used to lay out an attr log item in the

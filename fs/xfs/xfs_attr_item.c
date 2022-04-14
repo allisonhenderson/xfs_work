@@ -490,9 +490,14 @@ xfs_attri_validate(
 	if (attrp->__pad != 0)
 		return false;
 
-	/* alfi_op_flags should be either a set or remove */
-	if (op != XFS_ATTR_OP_FLAGS_SET && op != XFS_ATTR_OP_FLAGS_REMOVE)
+	switch (op) {
+	case XFS_ATTR_OP_FLAGS_SET:
+	case XFS_ATTR_OP_FLAGS_REMOVE:
+	case XFS_ATTR_OP_FLAGS_REPLACE:
+		break;
+	default:
 		return false;
+	}
 
 	if (attrp->alfi_value_len > XATTR_SIZE_MAX)
 		return false;
@@ -553,11 +558,27 @@ xfs_attri_item_recover(
 	args->namelen = attrp->alfi_name_len;
 	args->hashval = xfs_da_hashname(args->name, args->namelen);
 	args->attr_filter = attrp->alfi_attr_flags;
+	args->op_flags = XFS_DA_OP_RECOVERY;
 
-	if (attrp->alfi_op_flags == XFS_ATTR_OP_FLAGS_SET) {
+	switch (attr->xattri_op_flags) {
+	case XFS_ATTR_OP_FLAGS_SET:
+	case XFS_ATTR_OP_FLAGS_REPLACE:
 		args->value = attrip->attri_value;
 		args->valuelen = attrp->alfi_value_len;
 		args->total = xfs_attr_calc_size(args, &local);
+		if (xfs_inode_hasattr(args->dp))
+			attr->xattri_dela_state = xfs_attr_init_replace_state(args);
+		else
+			attr->xattri_dela_state = xfs_attr_init_add_state(args);
+		break;
+	case XFS_ATTR_OP_FLAGS_REMOVE:
+		if (!xfs_inode_hasattr(args->dp))
+			goto out;
+		attr->xattri_dela_state = xfs_attr_init_remove_state(args);
+		break;
+	default:
+		error = -EFSCORRUPTED;
+		goto out;
 	}
 
 	xfs_init_attr_trans(args, &tres, &total);
