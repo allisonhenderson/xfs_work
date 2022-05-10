@@ -556,6 +556,7 @@ int xfs_inode_hasattr(struct xfs_inode *ip);
 bool xfs_attr_is_leaf(struct xfs_inode *ip);
 int xfs_attr_get_ilocked(struct xfs_da_args *args);
 int xfs_attr_get(struct xfs_da_args *args);
+int xfs_attr_defer_add(struct xfs_da_args *args);
 int xfs_attr_set(struct xfs_da_args *args);
 int xfs_attr_set_iter(struct xfs_attr_item *attr);
 int xfs_attr_remove_iter(struct xfs_attr_item *attr);
@@ -590,6 +591,9 @@ static inline enum xfs_delattr_state
 xfs_attr_init_add_state(struct xfs_da_args *args)
 {
 	args->op_flags |= XFS_DA_OP_ADDNAME;
+
+	if (XFS_IFORK_Q((args->dp)) == 0)
+		return XFS_DAS_UNINIT;
 	if (!args->dp->i_afp)
 		return XFS_DAS_DONE;
 	if (xfs_attr_is_shortform(args->dp))

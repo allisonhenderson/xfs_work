@@ -704,14 +704,22 @@ xfs_attr_set_iter(
 	struct xfs_attr_item		*attr)
 {
 	struct xfs_da_args              *args = attr->xattri_da_args;
-	int				error = 0;
+	struct xfs_inode		*dp = args->dp;
+	struct xfs_buf			*bp = NULL;
+	int				sf_size, forkoff, error = 0;
+	struct xfs_mount		*mp = args->dp->i_mount;
+
 
 	/* State machine switch */
 next_state:
 	switch (attr->xattri_dela_state) {
 	case XFS_DAS_UNINIT:
-		ASSERT(0);
-		return -EFSCORRUPTED;
+		sf_size = sizeof(struct xfs_attr_sf_hdr) +
+			  xfs_attr_sf_entsize_byname(args->namelen,
+							     args->valuelen);
+		xfs_bmap_set_attrforkoff(args->dp, sf_size, NULL);
+		args->dp->i_afp = kmem_cache_zalloc(xfs_ifork_cache, 0);
+		args->dp->i_afp->if_format = XFS_DINODE_FMT_EXTENTS;
 	case XFS_DAS_SF_ADD:
 		return xfs_attr_sf_addname(attr);
 	case XFS_DAS_LEAF_ADD:
@@ -891,7 +899,7 @@ xfs_attr_item_init(
 }
 
 /* Sets an attribute for an inode as a deferred operation */
-static int
+int
 xfs_attr_defer_add(
 	struct xfs_da_args	*args)
 {
